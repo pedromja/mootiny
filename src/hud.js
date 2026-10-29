@@ -3,6 +3,7 @@ import { SAVE } from './save.js';
 import { Sfx, PACK_LABEL } from './sfx.js';
 import { txt, button, iconButton, FONT, BODY_FONT } from './common.js';
 import { WORLD_NAMES } from './save.js';
+const DOUBLE_TAP_MS = 450; // dois toques em ◀/▶ = arranque
 
 // HUD + comandos tácteis em marca de água (ecrã inteiro) + avisos + janela modal + barra do chefe.
 export class HudScene extends Phaser.Scene {
@@ -48,8 +49,10 @@ export class HudScene extends Phaser.Scene {
       if (z === 'jump') this.touch.jumpQueued = true;
       if (z === 'dash') this.touch.dashQueued = true;
       // alternativa: dois toques rápidos em ◀ ou ▶ também dão arranque
-      if ((z === 'left' || z === 'right') && SAVE.dash && this.lastTap.zone === z && this.time.now - this.lastTap.t < 300) this.touch.dashQueued = true;
-      this.lastTap = { zone: z, t: this.time.now };
+      // tempo real (não o do frame): num telemóvel a 30 fps o tempo da cena "salta" e dois toques de ~250 ms falhavam a janela
+      const now = performance.now();
+      if ((z === 'left' || z === 'right') && SAVE.dash && this.lastTap.zone === z && now - this.lastTap.t < DOUBLE_TAP_MS) { this.touch.dashQueued = true; this.lastTap = { zone: null, t: 0 }; }
+      else this.lastTap = { zone: z, t: now };
     });
     this.layout();
     this.onResize = () => this.layout();
@@ -164,6 +167,15 @@ export class HudScene extends Phaser.Scene {
     this.cloverIcon.play({ key: 'trevo_spin', repeat: 0 }, true);
     this.cloverIcon.once('animationcomplete', () => this.cloverIcon.setFrame(0));
     this.tweens.add({ targets: [this.cloverIcon, this.cloverText], scale: '*=1.25', duration: 90, yoyo: true, onComplete: () => { this.cloverIcon.setScale(0.62); this.cloverText.setScale(1); } });
+  }
+
+  // chama a atenção para o botão ▶▶ (quando a Mimosa está encostada aos fardos)
+  flashDash() {
+    if (!SAVE.dash || !this.showTouch) return;
+    const im = this.padImgs.dash;
+    this.tweens.killTweensOf(im);
+    const s0 = im.scaleX;
+    this.tweens.add({ targets: im, scaleX: s0 * 1.35, scaleY: s0 * 1.35, alpha: 1, duration: 220, yoyo: true, repeat: 4, onComplete: () => this.drawPads(false, false, false, false) });
   }
 
   toast(msg, ms = 2600) {

@@ -9,6 +9,8 @@ const BOTTOM = 780;
 const RUN = 250;
 const DASH_V = 680;
 const DASH_MS = 250;
+// autocolante do trator: recorte (86..192, 88..120) da textura 384x256; ao espelho fica em 192..298 → centro +53/-24 px de textura
+const STICKER_DX = 26.5, STICKER_DY = -12;
 
 export class LevelScene extends Phaser.Scene {
   constructor() { super('Level'); }
@@ -158,6 +160,13 @@ export class LevelScene extends Phaser.Scene {
       ditch.fillGradientStyle(0x2a0f6b, 0x2a0f6b, 0x0a0628, 0x0a0628, 1);
       ditch.fillRect(x1, GT + 10, x2 - x1, BOTTOM - GT + 200);
     }
+    // a cerca do fundo (camada "perto") não pode parecer uma ponte por cima do buraco: sombra a subir do fosso
+    const shade = this.add.graphics().setDepth(-6.9);
+    for (const [x1, x2] of L.pits) {
+      shade.fillGradientStyle(0x2a0f6b, 0x2a0f6b, 0x2a0f6b, 0x2a0f6b, 0, 0, 1, 1);
+      shade.fillRect(x1, GT - 46, x2 - x1, 58);
+      shade.fillStyle(0x2a0f6b, 1).fillRect(x1, GT + 12, x2 - x1, 60);
+    }
     // relva e terra em tileSprite com a arte 2x (tileScale 0.5)
     for (const [x1, x2, top] of L.grounds) {
       const w = x2 - x1;
@@ -193,6 +202,8 @@ export class LevelScene extends Phaser.Scene {
       t.body.setSize(320, 196).setOffset(24, 56);
       t.play('trator_drive');
       t.minX = min; t.maxX = max; t.dir = -1; t.baseSpeed = 110;
+      // a arte olha para a esquerda; virado para a direita o autocolante "MEGA-MK" ficava ao espelho → cobre-se com uma cópia direita
+      t.sticker = this.add.image(x, t.y, 'trator_sticker').setScale(0.5).setDepth(5.1).setVisible(false);
       this.tweens.add({ targets: t, angle: { from: -0.8, to: 0.8 }, yoyo: true, repeat: -1, duration: 140 });
     }
     this.thistles = this.physics.add.staticGroup();
@@ -383,9 +394,38 @@ export class LevelScene extends Phaser.Scene {
       t.setVelocityX(t.dir * t.baseSpeed);
       t.setFlipX(t.dir > 0);
     }
+    for (const t of this.tractors.getChildren()) t.sticker.setPosition(t.x + STICKER_DX, t.y + STICKER_DY).setAngle(t.angle).setVisible(t.flipX);
     if (this.boss) this.boss.update(time, delta);
 
+    this.checkStuckAtWall(time, delta);
     if (p.y > GT + 320) this.fall();
+  }
+
+  // Salvaguarda: encostada a uma pilha de fardos → ao fim de 1,5 s mostra como se faz o arranque;
+  // ao fim de 6 s a pilha cede sozinha (ninguém fica preso, mesmo que o toque falhe no aparelho).
+  checkStuckAtWall(time, delta) {
+    const b = this.player.body;
+    let wall = null, dir = 1;
+    for (const z of this.hayWalls) {
+      if (z.broken) continue;
+      const wb = z.body;
+      const v = b.bottom > wb.top + 4 && b.top < wb.bottom;
+      if (v && Math.abs(wb.left - b.right) < 6) { wall = z; dir = 1; break; }
+      if (v && Math.abs(b.left - wb.right) < 6) { wall = z; dir = -1; break; }
+    }
+    if (!wall || this.dashing) { this.stuckMs = 0; return; }
+    this.stuckMs = (this.stuckMs || 0) + delta;
+    if (this.stuckMs > 1500 && this.stuckHint !== wall) {
+      this.stuckHint = wall;
+      this.hud.toast(this.isTouch ? 'Para partir os fardos: toca no ▶▶ ARRANQUE\n(faixa amarela) ou 2 toques rápidos em ▶' : 'Para partir os fardos: ARRANQUE\n(Shift ou K)', 4200);
+      this.hud.flashDash();
+    }
+    if (this.stuckMs > 6000) {
+      this.stuckMs = 0;
+      this.dashDir = dir;
+      this.breakWall(wall);
+      this.hud.toast('A pilha cedeu! Da próxima vez usa o ARRANQUE ▶▶', 3000);
+    }
   }
 
   doSquash(sx, sy, ms) {

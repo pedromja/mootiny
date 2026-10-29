@@ -6,7 +6,7 @@ const SHEETS = {
   mimosa: [96, 128], mana: [96, 128], mana2: [96, 128], mana3: [96, 128], mana4: [96, 128],
   can: [72, 88], agricultor: [96, 128], trator: [384, 256], ordenhadeira: [320, 210], trevo: [48, 52], cerca: [64, 96], bandeira: [80, 140],
 };
-const IMAGES = ['relva', 'terra', 'plataforma', 'feno', 'coracao', 'coracao_vazio', 'faisca', 'btn_jogar', 'btn_jogar_down', 'btn_menu', 'btn_som', 'btn_som_off', 'btn_pausa',
+const IMAGES = ['trator_sticker', 'relva', 'terra', 'plataforma', 'feno', 'coracao', 'coracao_vazio', 'faisca', 'btn_jogar', 'btn_jogar_down', 'btn_menu', 'btn_som', 'btn_som_off', 'btn_pausa',
   'touch_left', 'touch_right', 'touch_jump', 'touch_dash', 'logo', 'cardo', 'poder', 'cogumelo', 'ferradura', 'jaula', 'portao', 'cercado', 'gota', 'placa',
   'pill_red', 'pill_blue', 'pill_purple', 'pill_teal', 'pill_green', 'pill_grey'];
 

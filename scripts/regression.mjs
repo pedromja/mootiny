@@ -162,9 +162,61 @@ async function dashWall(c, kind, hold = false) {
   await page.screenshot({ path: `${OUT}/regressao-${kind}-4-vala.png` });
 }
 
+// ---------- 3) Caso do Pedro (29 out, v5): telemóvel na horizontal ~1024x467, parada encostada à pilha de fardos ----------
+// Toques REAIS do Chrome (CDP Input.dispatchTouchEvent, com o tempo e a latência de um dedo), não eventos DOM sintéticos:
+// foi assim que o bug apareceu (2 toques em ▶ com ~180 ms reais caíam fora da janela de 300 ms medida em tempo de frame).
+async function stuckAtWall(c, kind, method) {
+  const { page, check, L, input, log } = c;
+  const cdp = kind.startsWith('toque') ? await page.context().newCDPSession(page) : null;
+  const T = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+  const fingerTap = async (x, y, id, others = []) => { await T('touchStart', [...others, { x, y, id }]); await sleep(60); await T('touchEnd', others); };
+  await c.gotoTitle();
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('mootiny.save.v1') || '{}'); s.dash = true; s.doubleJump = true; localStorage.setItem('mootiny.save.v1', JSON.stringify(s)); });
+  await c.gotoTitle();
+  await page.evaluate(() => window.__MOOTINY__.scene.getScene('Title').scene.start('Level', { world: 2 }));
+  await sleep(1200);
+  await L('L.debugWarp(2600)'); await sleep(500);
+  const R = await c.at('Hud', 'padImgs.right');
+  if (cdp) { await T('touchStart', [{ x: R.x, y: R.y, id: 1 }]); await sleep(1800); await T('touchEnd', []); } else { await input.right(true); await sleep(1800); await input.right(false); }
+  await sleep(800); // encostada e parada
+  const x0 = await L('L.player.x');
+  const hay = await L('(() => { const z = L.hayWalls[0]; return { top: z.body.top, bottom: z.body.bottom, imgTop: z.img.y, imgH: z.img.displayHeight }; })()');
+  check(x0 > 2700 && !(await L('L.hayWalls[0].broken')), `${method}: parada encostada à pilha (x=${Math.round(x0)})`);
+  check(Math.abs(hay.imgTop - hay.top) < 2 && Math.abs(hay.imgH - (hay.bottom - hay.top)) < 2 && hay.bottom - hay.top === 280, `${method}: pilha com 280 de altura (visual = física = desenho do nível)`);
+  if (cdp && method === 'icone') await page.screenshot({ path: `${OUT}/regressao-${kind}-0-encostada.png` });
+  if (method === 'icone') { const q = await c.at('Hud', 'padImgs.dash'); await fingerTap(q.x, q.y, 4); }
+  else if (method === 'duplo') { await fingerTap(R.x, R.y, 5); await sleep(120); await fingerTap(R.x, R.y, 6); }
+  else if (method === 'duplo-lento') { // ~300 ms entre toques (o normal de um dedo humano), medido no próprio browser
+    await page.evaluate(() => { window.__downs = []; document.addEventListener('touchstart', () => window.__downs.push(performance.now()), { capture: true }); });
+    await fingerTap(R.x, R.y, 5); await sleep(170); await fingerTap(R.x, R.y, 6);
+    log('intervalo real entre os 2 toques:', Math.round(await page.evaluate(() => window.__downs[1] - window.__downs[0])), 'ms');
+  }
+  else if (method === 'segura-duplo') {
+    const hold = { x: R.x, y: R.y, id: 1 };
+    await T('touchStart', [hold]); await sleep(500);
+    await fingerTap(R.x + 30, R.y - 40, 7, [hold]); await sleep(150); await fingerTap(R.x + 30, R.y - 40, 8, [hold]);
+    await sleep(300); await T('touchEnd', []);
+  } else if (method === 'tecla') { await input.dash(); }
+  else if (method === 'sem-nada') {
+    await sleep(2000);
+    check(/fardos/i.test(await page.evaluate(() => window.__MOOTINY__.scene.getScene('Hud').toastText.text)), 'sem-nada: ao fim de 1,5 s encostada aparece a dica do arranque');
+    await sleep(4600);
+  }
+  let maxX = x0;
+  for (let i = 0; i < 12; i++) { maxX = Math.max(maxX, await L('L.player.x')); await sleep(50); }
+  check(await L('L.hayWalls[0].broken === true'), `${method}: a pilha toda parte`);
+  if (method !== 'sem-nada') check(maxX > 2830, `${method}: o arranque leva-a para lá da pilha (x máx=${Math.round(maxX)})`);
+  if (cdp && method === 'icone') await page.screenshot({ path: `${OUT}/regressao-${kind}-1-partida.png` });
+  log(method, 'vv scale', await page.evaluate(() => window.visualViewport?.scale));
+}
+
+const phoneWide = { viewport: { width: 1024, height: 467 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const mobile = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const landscape = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const desktop = { viewport: { width: 1280, height: 800 } };
+for (const m of ['icone', 'duplo', 'duplo-lento', 'segura-duplo', 'sem-nada']) await session(`toque-1024x467-${m}`, phoneWide, (c) => stuckAtWall(c, 'toque-1024x467', m));
+await session('teclado-encostada', desktop, (c) => stuckAtWall(c, 'teclado', 'tecla'));
+if (process.env.ONLY_WALL) { await browser.close(); console.log(failures ? `REGRESSION FAILURES: ${failures}` : 'REGRESSION PASSED'); process.exit(failures ? 1 : 0); }
 if (!process.env.ONLY_DASH && !process.env.ONLY_KEY) await session('toque-390x844', mobile, (c) => fullFlow(c, 'toque'));
 if (process.env.ONLY_TOUCH) { await browser.close(); process.exit(failures ? 1 : 0); }
 if (!process.env.ONLY_DASH) await session('teclado-1280x800', desktop, (c) => fullFlow(c, 'teclado'));

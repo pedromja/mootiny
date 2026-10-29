@@ -20,6 +20,8 @@ for (const d of ['art', 'audio/classico', 'audio/mootiny', 'audio/music', 'fonts
 const SPRITES = ['mimosa', 'mana', 'mana2', 'mana3', 'mana4', 'can', 'agricultor', 'trator', 'ordenhadeira', 'trevo', 'relva', 'terra', 'plataforma', 'feno',
   'coracao', 'coracao_vazio', 'faisca', 'cerca', 'btn_jogar', 'btn_jogar_down', 'btn_menu', 'btn_som', 'btn_som_off', 'btn_pausa', 'touch_left', 'touch_right', 'touch_jump', 'logo'];
 for (const n of SPRITES) fs.copyFileSync(path.join(ART, 'png', n + '.png'), path.join(PUB, 'art', n + '.png'));
+// autocolante "MEGA-MK" direito (para o trator virado para a direita; ver level.js STICKER_DX)
+await sharp(path.join(ART, 'png', 'trator.png')).extract({ left: 86, top: 88, width: 106, height: 32 }).png().toFile(path.join(PUB, 'art', 'trator_sticker.png'));
 for (const w of ['ilha', 'quinta']) for (const l of ['sky', 'far', 'mid', 'near']) {
   // as camadas com transparência são cortadas por cima (menos píxeis a desenhar por frame; o fundo fica alinhado pela base)
   let img = sharp(path.join(ART, 'png', `bg_${w}_${l}.png`));
