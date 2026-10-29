@@ -116,7 +116,7 @@ export class IntroScene extends Phaser.Scene {
 
     if (this.world === 1) this.introIsland(w, h, groundY, s); else this.introFarm(w, h, groundY, s);
 
-    this.input.on('pointerup', (p) => { if (p.y > 180) this.next(); });
+    this.input.on('pointerup', () => this.next()); // qualquer toque avança (também na caixa de texto)
     this.input.keyboard.on('keydown-SPACE', () => this.next());
     this.input.keyboard.on('keydown-ENTER', () => this.next());
     this.input.keyboard.on('keydown-ESC', () => this.finish());

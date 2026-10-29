@@ -8,7 +8,7 @@ import { Boss } from './boss.js';
 const BOTTOM = 780;
 const RUN = 250;
 const DASH_V = 680;
-const DASH_MS = 210;
+const DASH_MS = 250;
 
 export class LevelScene extends Phaser.Scene {
   constructor() { super('Level'); }
@@ -16,6 +16,14 @@ export class LevelScene extends Phaser.Scene {
   create(data) {
     this.world = WORLDS[(data && data.world) || 1];
     const L = this.world;
+    // A cena é reutilizada entre mundos: limpar tudo o que vem do nível anterior.
+    this.boss = null;
+    this.gateZone = null;
+    this.gate = null;
+    this.mana = null;
+    this.hayPlaced = false;
+    this.dashDir = 1;
+    this.dashStart = 0;
     this.W = L.W;
     this.respawning = false;
     this.paused = false;
@@ -24,7 +32,7 @@ export class LevelScene extends Phaser.Scene {
     this.fallsInRow = 0;
     this.clovers = 0;
     this.totalClovers = L.clovers.length;
-    this.jumpsUsed = 0;
+    this.jumpsUsed = 0; this.jumpAt = 0;
     this.lastGround = -9999;
     this.jumpBuffer = -9999;
     this.invulnUntil = 0;
@@ -196,7 +204,7 @@ export class LevelScene extends Phaser.Scene {
     for (const [x, text] of L.signs) {
       let t = text;
       if (t === '@tutorial') t = this.isTouch ? 'Toca à esquerda: ◀ ▶ andar\nToca à direita: saltar' : 'A/D ou ◀ ▶: andar\nEspaço: saltar';
-      if (t === '@dash') t = this.isTouch ? 'ARRANQUE: toca na faixa ⇥\n(parte fardos de feno!)' : 'ARRANQUE: Shift ou K\n(parte fardos de feno!)';
+      if (t === '@dash') t = this.isTouch ? 'ARRANQUE: toca na faixa ▶▶\nou 2 toques em ▶ (parte fardos!)' : 'ARRANQUE: Shift ou K\n(parte fardos de feno!)';
       this.sign(x, t);
     }
 
@@ -346,24 +354,33 @@ export class LevelScene extends Phaser.Scene {
     if (this.dashing) {
       p.setVelocity(this.dashDir * DASH_V, 0);
       this.afterimage();
-      if (time > this.dashEnd || p.body.blocked.left || p.body.blocked.right) this.endDash();
+      this.breakAdjacentWall();
+      // só termina por bater numa parede depois de ter mesmo arrancado (antes terminava logo encostada ao fardo)
+      const blocked = this.dashDir > 0 ? p.body.blocked.right : p.body.blocked.left;
+      if (time > this.dashEnd || (blocked && time - this.dashStart > 90)) this.endDash();
     } else if (time > this.hurtLock) {
       let vx = 0;
       if (c.left) vx -= RUN;
       if (c.right) vx += RUN;
-      p.setVelocityX(Phaser.Math.Linear(p.body.velocity.x, vx, onGround ? 0.35 : 0.18));
+      const vx0 = p.body.velocity.x;
+      // no ar, depois do arranque, o embalo dura mais (mais fácil atravessar a vala)
+      const keep = !onGround && Math.abs(vx0) > RUN && Math.sign(vx0) === Math.sign(vx || vx0);
+      p.setVelocityX(Phaser.Math.Linear(vx0, vx || (keep ? vx0 : 0), onGround ? 0.35 : keep ? 0.03 : 0.18));
       if (vx < 0) p.setFlipX(true); else if (vx > 0) p.setFlipX(false);
     }
 
     if (c.pressed) this.jumpBuffer = time;
+    if (time - this.jumpBuffer < 130 && this.dashing && (time - this.lastGround < 110 || (SAVE.doubleJump && this.jumpsUsed < 2))) {
+      this.endDash(); // saltar durante o arranque: mantém o embalo
+    }
     if (time - this.jumpBuffer < 130 && !this.dashing) {
       if (time - this.lastGround < 110 && this.jumpsUsed === 0) {
-        p.setVelocityY(-570); this.jumpsUsed = 1; this.lastGround = -9999; this.jumpBuffer = -9999; Sfx.play('jump');
+        p.setVelocityY(-570); this.jumpAt = time; this.jumpsUsed = 1; this.lastGround = -9999; this.jumpBuffer = -9999; Sfx.play('jump');
       } else if (SAVE.doubleJump && this.jumpsUsed < 2 && !onGround) {
-        p.setVelocityY(-530); this.jumpsUsed = 2; this.jumpBuffer = -9999; Sfx.play('djump'); this.puff(p.x, p.body.bottom);
+        p.setVelocityY(-530); this.jumpAt = time; this.jumpsUsed = 2; this.jumpBuffer = -9999; Sfx.play('djump'); this.puff(p.x, p.body.bottom);
       }
     }
-    if (!c.held && !this.dashing && p.body.velocity.y < -260 && this.jumpsUsed > 0) p.setVelocityY(-260);
+    if (!c.held && !this.dashing && time - (this.jumpAt || 0) > 150 && p.body.velocity.y < -260 && this.jumpsUsed > 0) p.setVelocityY(-260);
 
     if (this.dashing || !onGround) { p.anims.stop(); p.setTexture('mimosa_jump'); }
     else if (Math.abs(p.body.velocity.x) > 30) { if (p.anims.currentAnim?.key !== 'walk' || !p.anims.isPlaying) p.play('walk'); }
@@ -418,19 +435,34 @@ export class LevelScene extends Phaser.Scene {
     const p = this.player;
     this.dashing = true;
     this.dashAvail = false;
+    this.dashStart = time;
     this.dashEnd = time + DASH_MS;
     this.dashReadyAt = time + 520;
     this.dashDir = c.left && !c.right ? -1 : c.right && !c.left ? 1 : p.flipX ? -1 : 1;
     p.setFlipX(this.dashDir < 0);
     p.body.allowGravity = false;
     Sfx.play('dash');
+    this.breakAdjacentWall(); // parado e encostado ao fardo também parte
+  }
+
+  // Parte um fardo encostado (ou a poucos píxeis) na direção do arranque.
+  breakAdjacentWall() {
+    const b = this.player.body;
+    for (const wall of this.hayWalls) {
+      if (wall.broken) continue;
+      const wb = wall.body;
+      const gap = this.dashDir > 0 ? wb.left - b.right : b.left - wb.right;
+      const vOverlap = b.bottom > wb.top && b.top < wb.bottom;
+      if (vOverlap && gap > -24 && gap < 36) { this.breakWall(wall); return true; }
+    }
+    return false;
   }
 
   endDash() {
     const p = this.player;
     this.dashing = false;
     p.body.allowGravity = true;
-    p.setVelocityX(this.dashDir * RUN);
+    p.setVelocityX(this.dashDir * 400);
   }
 
   afterimage() {
@@ -481,7 +513,7 @@ export class LevelScene extends Phaser.Scene {
     this.cameras.main.flash(200, 255, 243, 160);
     this.tweens.add({ targets: this.power, y: this.power.y - 60, alpha: 0, scale: 2, duration: 500 });
     if (type === 'dash') {
-      this.hud.toast(`Ferradura-turbo! ARRANQUE desbloqueado.\n${this.isTouch ? 'Toca na faixa ⇥' : 'Shift ou K'}: dispara em frente e parte fardos. (ficou gravado)`, 4200);
+      this.hud.toast(`Ferradura-turbo! ARRANQUE desbloqueado.\n${this.isTouch ? 'Toca na faixa ▶▶ (ou 2 toques em ▶)' : 'Shift ou K'}: dispara em frente e parte fardos. (ficou gravado)`, 4200);
       this.hud.layout();
     } else {
       this.hud.toast('Cogumelo dourado! DUPLO SALTO desbloqueado.\nSalta outra vez no ar. (ficou gravado)', 3800);

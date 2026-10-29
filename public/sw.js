@@ -1,5 +1,5 @@
 // Mootiny service worker: pré-cache do essencial + cache em tempo de execução (offline após a 1.ª visita).
-const CACHE = 'mootiny-v3';
+const CACHE = 'mootiny-v4';
 // caminhos relativos ao sw.js, para funcionar em /mootiny/ (GitHub Pages) ou na raiz
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './privacidade/'];
 self.addEventListener('install', (e) => {

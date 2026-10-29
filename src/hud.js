@@ -14,7 +14,9 @@ export class HudScene extends Phaser.Scene {
     this.modalOpen = false;
     this.modalBox = null;
     this.topH = 64;
-    this.input.addPointer(3);
+    // ponteiros extra só uma vez por jogo (antes somava 3 a cada nível)
+    if (!this.game.registry.get('extraPointers')) { this.input.addPointer(3); this.game.registry.set('extraPointers', true); }
+    this.lastTap = { zone: null, t: 0 };
 
     this.pads = this.add.graphics().setDepth(0);
     this.padIcons = this.add.graphics().setDepth(1);
@@ -38,6 +40,9 @@ export class HudScene extends Phaser.Scene {
       const z = this.zoneAt(p.x);
       if (z === 'jump') this.touch.jumpQueued = true;
       if (z === 'dash') this.touch.dashQueued = true;
+      // alternativa: dois toques rápidos em ◀ ou ▶ também dão arranque
+      if ((z === 'left' || z === 'right') && SAVE.dash && this.lastTap.zone === z && this.time.now - this.lastTap.t < 300) this.touch.dashQueued = true;
+      this.lastTap = { zone: z, t: this.time.now };
     });
     this.layout();
     this.onResize = () => this.layout();
@@ -100,7 +105,7 @@ export class HudScene extends Phaser.Scene {
     const z = this.zones();
     g.fillStyle(0xffffff, l ? 0.12 : 0.03); g.fillRect(0, top, z.l, h - top);
     g.fillStyle(0xffffff, r ? 0.12 : 0.03); g.fillRect(z.l, top, z.r - z.l, h - top);
-    if (SAVE.dash) { g.fillStyle(0xffd27a, d ? 0.18 : 0.04); g.fillRect(z.r, top, z.d - z.r, h - top); }
+    if (SAVE.dash) { g.fillStyle(0xffd27a, d ? 0.22 : 0.08); g.fillRect(z.r, top, z.d - z.r, h - top); }
     g.fillStyle(0xffffff, j ? 0.12 : 0.02); g.fillRect(z.d, top, w - z.d, h - top);
     g.lineStyle(1, 0xffffff, 0.12);
     for (const x of [z.l, z.r, z.d]) g.lineBetween(x, top + 20, x, h - 20);
