@@ -7,7 +7,7 @@ Chefe: Super Ordenhadeira 3000 (src/boss.js): lança gotas de leite → avisa a 
 Título: Jogar (próximo mundo), seleção de mundos com ✓/trevos/tempo, Som (Clássico/Mootiny/Silêncio), Modo fácil, poderes, privacidade.
 PWA: manifest fullscreen #C4452D/#1C1410, sw.js (cache v2), ícones 192/512/maskable, /privacidade.
 Verificado: `npm test` (Chrome headless 390x844 toque + 1280x800 teclado) — W1 completo, W2: movimento, cercas liga/desliga, oferta fácil, arranque gravado, fardo bloqueia/parte, chefe vencido com 3 pisões, manada, fim gravado; 0 erros de consola. Capturas em screens/ (prefixo w2- para A Quinta).
-Pendente: mundos 3–5, minijogos, Super Muu, música; afinar dificuldade em telemóvel real (o teste teletransporta, não joga tudo); email de apoio na política; twa.json → maskableIconUrl /icon-maskable-512.png; publicar só com OK do Pedro.
+Pendente: mundos 3–5, minijogos, Super Muu, música; afinar dificuldade em telemóvel real (o teste teletransporta, não joga tudo); email de apoio na política; twa.json → maskableIconUrl /icon-maskable-512.png e URL https://pedromja.github.io/mootiny/ (assetlinks.json no domínio raiz pedromja.github.io será preciso para TWA sem barra).
 Correr: `cd /workspace/mootiny && npm run build && npm run preview` → http://127.0.0.1:4173 ; testes: `npm test` com o preview ligado.
 Caminhos: src/ (main, screens, level, worlds, boss, hud, textures, sfx, save, common) · public/ · scripts/icons.mjs, scripts/check.mjs · dist/ · screens/.
-Nada publicado nem enviado para o GitHub (git só local, sem remoto). Sem segredos. Custo zero.
+Publicado (OK do Pedro, 29 out 2026): repo público https://github.com/pedromja/mootiny (main = código) · jogo em https://pedromja.github.io/mootiny/ (GitHub Pages do ramo gh-pages = dist/ + .nojekyll; base /mootiny/). Republicar: build → copiar dist para gh-pages e push. Sem segredos. Custo zero.
