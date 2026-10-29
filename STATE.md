@@ -1,0 +1,13 @@
+# Mootiny — estado (29 out 2026)
+Objetivo: plataformas PWA (PT-PT) a empacotar depois com PWABuilder (pt.ilhaverde.mootiny). Mundos 1 e 2 jogáveis; 3–5 por fazer.
+Decisões: Phaser 3.90 + Vite 8; arte e som 100% gerados por código; save em localStorage `mootiny.save.v1` (world1/world2, doubleJump, dash, easy, soundPack); níveis por dados em src/worlds.js, motor único em src/level.js; modo fácil = feno nos buracos + inimigos/chefe mais lentos.
+Mundo 1 · Ilha Verde: intro PLOP, salto/duplo salto (gravado), latas, cardos, buracos, 25 trevos, bandeiras, 3 corações, Mana Estrela no cercado.
+Mundo 2 · A Quinta (abre ao acabar o 1; botão "Próximo: A Quinta"): intro do estábulo, celeiros/silos/vedações/fardos, tratores (não se pisam), 4 cercas elétricas com aviso laranja, agricultores barrigudos rabugentos (aceleram, pisáveis), ferradura-turbo = ARRANQUE (Shift/K ou faixa ⇥ no toque; gravado), fardos que só o arranque parte + vala de 380px, 26 trevos, 3 bandeiras.
+Chefe: Super Ordenhadeira 3000 (src/boss.js): lança gotas de leite → avisa a piscar → carrega contra a parede → fica tonta com botão vermelho; 3 pisões. Liberta 3 manas que seguem a Mimosa em fila. Fim: "Próximo: Estrada do Leite — em breve".
+Título: Jogar (próximo mundo), seleção de mundos com ✓/trevos/tempo, Som (Clássico/Mootiny/Silêncio), Modo fácil, poderes, privacidade.
+PWA: manifest fullscreen #C4452D/#1C1410, sw.js (cache v2), ícones 192/512/maskable, /privacidade.
+Verificado: `npm test` (Chrome headless 390x844 toque + 1280x800 teclado) — W1 completo, W2: movimento, cercas liga/desliga, oferta fácil, arranque gravado, fardo bloqueia/parte, chefe vencido com 3 pisões, manada, fim gravado; 0 erros de consola. Capturas em screens/ (prefixo w2- para A Quinta).
+Pendente: mundos 3–5, minijogos, Super Muu, música; afinar dificuldade em telemóvel real (o teste teletransporta, não joga tudo); email de apoio na política; twa.json → maskableIconUrl /icon-maskable-512.png; publicar só com OK do Pedro.
+Correr: `cd /workspace/mootiny && npm run build && npm run preview` → http://127.0.0.1:4173 ; testes: `npm test` com o preview ligado.
+Caminhos: src/ (main, screens, level, worlds, boss, hud, textures, sfx, save, common) · public/ · scripts/icons.mjs, scripts/check.mjs · dist/ · screens/.
+Nada publicado nem enviado para o GitHub (git só local, sem remoto). Sem segredos. Custo zero.
