@@ -1,0 +1,413 @@
+[
+ {
+  "n": 1,
+  "layers": [
+   {
+    "key": "intro1_bg",
+    "file": "p1_bg.webp",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 800
+   },
+   {
+    "key": "intro1_bolt",
+    "file": "p1_bolt.webp",
+    "fx": "bolt",
+    "x": 802,
+    "y": 26,
+    "w": 132,
+    "h": 289
+   },
+   {
+    "key": "intro1_word",
+    "file": "p1_word.webp",
+    "fx": "pop",
+    "x": 974,
+    "y": 71,
+    "w": 212,
+    "h": 131
+   }
+  ]
+ },
+ {
+  "n": 2,
+  "layers": [
+   {
+    "key": "intro2_bg",
+    "file": "p2_bg.webp",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 800
+   },
+   {
+    "key": "intro2_saucer",
+    "file": "p2_saucer.webp",
+    "fx": "bob",
+    "x": 815,
+    "y": 39,
+    "w": 170,
+    "h": 113
+   },
+   {
+    "key": "intro2_zap",
+    "file": "p2_zap.webp",
+    "fx": "zap",
+    "x": 806,
+    "y": 139,
+    "w": 108,
+    "h": 322
+   },
+   {
+    "key": "intro2_m1",
+    "file": "p2_m1.webp",
+    "fx": "grow",
+    "x": 244,
+    "y": 534,
+    "w": 112,
+    "h": 112
+   },
+   {
+    "key": "intro2_m2",
+    "file": "p2_m2.webp",
+    "fx": "grow",
+    "x": 426,
+    "y": 562,
+    "w": 88,
+    "h": 88
+   },
+   {
+    "key": "intro2_m3",
+    "file": "p2_m3.webp",
+    "fx": "grow",
+    "x": 534,
+    "y": 472,
+    "w": 212,
+    "h": 212
+   },
+   {
+    "key": "intro2_m4",
+    "file": "p2_m4.webp",
+    "fx": "grow",
+    "x": 770,
+    "y": 553,
+    "w": 100,
+    "h": 100
+   },
+   {
+    "key": "intro2_m5",
+    "file": "p2_m5.webp",
+    "fx": "grow",
+    "x": 938,
+    "y": 556,
+    "w": 84,
+    "h": 83
+   },
+   {
+    "key": "intro2_word",
+    "file": "p2_word.webp",
+    "fx": "pop",
+    "x": 521,
+    "y": 240,
+    "w": 238,
+    "h": 149
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "layers": [
+   {
+    "key": "intro3_bg",
+    "file": "p3_bg.webp",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 800
+   },
+   {
+    "key": "intro3_glow",
+    "file": "p3_glow.webp",
+    "fx": "pulse",
+    "x": 471,
+    "y": 331,
+    "w": 338,
+    "h": 338
+   },
+   {
+    "key": "intro3_herd",
+    "file": "p3_herd.webp",
+    "fx": "bob",
+    "x": 239,
+    "y": 486,
+    "w": 838,
+    "h": 169
+   },
+   {
+    "key": "intro3_mimosa",
+    "file": "p3_mimosa.webp",
+    "fx": "chomp",
+    "x": 528,
+    "y": 432,
+    "w": 274,
+    "h": 243
+   },
+   {
+    "key": "intro3_word",
+    "file": "p3_word.webp",
+    "fx": "pop",
+    "x": 493,
+    "y": 111,
+    "w": 294,
+    "h": 180
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "layers": [
+   {
+    "key": "intro4_bg",
+    "file": "p4_bg.webp",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 800
+   },
+   {
+    "key": "intro4_beam1",
+    "file": "p4_beam1.webp",
+    "fx": "beam",
+    "x": 0,
+    "y": 160,
+    "w": 608,
+    "h": 540
+   },
+   {
+    "key": "intro4_beam2",
+    "file": "p4_beam2.webp",
+    "fx": "beam",
+    "x": 645,
+    "y": 141,
+    "w": 635,
+    "h": 588
+   },
+   {
+    "key": "intro4_s1",
+    "file": "p4_s1.webp",
+    "fx": "float",
+    "x": 222,
+    "y": 267,
+    "w": 114,
+    "h": 163
+   },
+   {
+    "key": "intro4_s2",
+    "file": "p4_s2.webp",
+    "fx": "float",
+    "x": 945,
+    "y": 317,
+    "w": 114,
+    "h": 162
+   },
+   {
+    "key": "intro4_s3",
+    "file": "p4_s3.webp",
+    "fx": "float",
+    "x": 305,
+    "y": 502,
+    "w": 106,
+    "h": 147
+   },
+   {
+    "key": "intro4_s4",
+    "file": "p4_s4.webp",
+    "fx": "float",
+    "x": 888,
+    "y": 154,
+    "w": 95,
+    "h": 135
+   },
+   {
+    "key": "intro4_u1",
+    "file": "p4_u1.webp",
+    "fx": "bob",
+    "x": 206,
+    "y": 50,
+    "w": 188,
+    "h": 126
+   },
+   {
+    "key": "intro4_u2",
+    "file": "p4_u2.webp",
+    "fx": "bob",
+    "x": 881,
+    "y": 25,
+    "w": 198,
+    "h": 133
+   },
+   {
+    "key": "intro4_u3",
+    "file": "p4_u3.webp",
+    "fx": "bob",
+    "x": 584,
+    "y": 7,
+    "w": 132,
+    "h": 88
+   },
+   {
+    "key": "intro4_b1",
+    "file": "p4_b1.webp",
+    "fx": "pop",
+    "x": 128,
+    "y": 208,
+    "w": 194,
+    "h": 124
+   },
+   {
+    "key": "intro4_b2",
+    "file": "p4_b2.webp",
+    "fx": "pop",
+    "x": 1008,
+    "y": 298,
+    "w": 234,
+    "h": 104
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "layers": [
+   {
+    "key": "intro5_bg",
+    "file": "p5_bg.webp",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 800
+   },
+   {
+    "key": "intro5_beam",
+    "file": "p5_beam.webp",
+    "fx": "beam",
+    "x": 455,
+    "y": 132,
+    "w": 370,
+    "h": 308
+   },
+   {
+    "key": "intro5_saucer",
+    "file": "p5_saucer.webp",
+    "fx": "bob",
+    "x": 536,
+    "y": 11,
+    "w": 208,
+    "h": 138
+   },
+   {
+    "key": "intro5_bubble",
+    "file": "p5_bubble.webp",
+    "fx": "pop",
+    "x": 718,
+    "y": 38,
+    "w": 344,
+    "h": 94
+   },
+   {
+    "key": "intro5_shadow",
+    "file": "p5_shadow.webp",
+    "fx": "land",
+    "x": 418,
+    "y": 589,
+    "w": 295,
+    "h": 67
+   },
+   {
+    "key": "intro5_mimosa",
+    "file": "p5_mimosa.webp",
+    "fx": "drop",
+    "x": 465,
+    "y": 426,
+    "w": 181,
+    "h": 231
+   },
+   {
+    "key": "intro5_word",
+    "file": "p5_word.webp",
+    "fx": "pop",
+    "x": 701,
+    "y": 354,
+    "w": 257,
+    "h": 159
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "layers": [
+   {
+    "key": "intro6_bg",
+    "file": "p6_bg.webp",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 800
+   },
+   {
+    "key": "intro6_u1",
+    "file": "p6_u1.webp",
+    "fx": "flyaway",
+    "x": 938,
+    "y": 179,
+    "w": 84,
+    "h": 57
+   },
+   {
+    "key": "intro6_u2",
+    "file": "p6_u2.webp",
+    "fx": "flyaway",
+    "x": 1087,
+    "y": 258,
+    "w": 66,
+    "h": 45
+   },
+   {
+    "key": "intro6_u3",
+    "file": "p6_u3.webp",
+    "fx": "flyaway",
+    "x": 802,
+    "y": 164,
+    "w": 76,
+    "h": 51
+   },
+   {
+    "key": "intro6_glow",
+    "file": "p6_glow.webp",
+    "fx": "pulse",
+    "x": 133,
+    "y": 313,
+    "w": 334,
+    "h": 334
+   },
+   {
+    "key": "intro6_mimosa",
+    "file": "p6_mimosa.webp",
+    "fx": "hop",
+    "x": 238,
+    "y": 366,
+    "w": 190,
+    "h": 277
+   },
+   {
+    "key": "intro6_bubble",
+    "file": "p6_bubble.webp",
+    "fx": "pop",
+    "x": 398,
+    "y": 198,
+    "w": 414,
+    "h": 144
+   }
+  ]
+ }
+]

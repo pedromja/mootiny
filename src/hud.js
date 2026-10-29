@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { SAVE } from './save.js';
 import { Sfx, PACK_LABEL } from './sfx.js';
-import { txt, button, FONT } from './common.js';
+import { txt, button, iconButton, FONT, BODY_FONT } from './common.js';
+import { WORLD_NAMES } from './save.js';
 
 // HUD + comandos tácteis em marca de água (ecrã inteiro) + avisos + janela modal + barra do chefe.
 export class HudScene extends Phaser.Scene {
@@ -18,20 +19,26 @@ export class HudScene extends Phaser.Scene {
     if (!this.game.registry.get('extraPointers')) { this.input.addPointer(3); this.game.registry.set('extraPointers', true); }
     this.lastTap = { zone: null, t: 0 };
 
+    // zonas tácteis: véu muito leve + botões redondos da arte
     this.pads = this.add.graphics().setDepth(0);
-    this.padIcons = this.add.graphics().setDepth(1);
-    this.jumpLabel = txt(this, 0, 0, 'SALTAR', 18, { color: '#FFFFFF', strokeThickness: 0 }).setAlpha(0.35).setDepth(1);
-    this.dashLabel = txt(this, 0, 0, 'ARRANQUE', 13, { color: '#FFFFFF', strokeThickness: 0 }).setAlpha(0.35).setDepth(1);
+    this.padImgs = { left: this.add.image(0, 0, 'touch_left'), right: this.add.image(0, 0, 'touch_right'), jump: this.add.image(0, 0, 'touch_jump'), dash: this.add.image(0, 0, 'touch_dash') };
+    Object.values(this.padImgs).forEach((im) => im.setDepth(1));
+    this.jumpLabel = txt(this, 0, 0, 'SALTAR', 15, { color: '#FFFFFF' }).setAlpha(0.6).setDepth(1);
+    this.dashLabel = txt(this, 0, 0, 'ARRANQUE', 13, { color: '#FFD43B' }).setAlpha(0.6).setDepth(1);
 
-    this.heartImgs = [0, 1, 2].map((i) => this.add.image(22 + i * 28, 26, 'coracao').setDepth(5));
-    this.cloverIcon = this.add.image(22, 56, 'trevo').setScale(0.9).setDepth(5);
-    this.cloverText = this.add.text(38, 56, '0', { fontFamily: FONT, fontSize: '18px', color: '#fff', stroke: '#1C1410', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(5);
-    this.timeText = this.add.text(0, 26, '', { fontFamily: FONT, fontSize: '16px', color: '#fff', stroke: '#1C1410', strokeThickness: 4 }).setOrigin(0.5).setDepth(5);
-    this.soundBtn = button(this, 0, 28, this.soundLabel(), () => { Sfx.cyclePack(); this.soundBtn.label.setText(this.soundLabel()); }, { w: 128, h: 38, size: 14, fill: 0x2d6cc4 }).setDepth(5);
-    this.menuBtn = button(this, 0, 28, 'Menu', () => this.level.scene.start('Title'), { w: 72, h: 38, size: 14, fill: 0x1c1410 }).setDepth(5);
-    this.toastText = txt(this, 0, 0, '', 18, { backgroundColor: '#1C1410CC', padding: { x: 12, y: 8 }, strokeThickness: 0, wordWrap: { width: 340 } }).setDepth(20).setAlpha(0);
+    this.heartImgs = [0, 1, 2].map((i) => this.add.image(22 + i * 32, 26, 'coracao').setScale(0.7).setDepth(5));
+    this.cloverIcon = this.add.sprite(22, 58, 'trevo', 0).setScale(0.62).setDepth(5);
+    this.cloverText = this.add.text(40, 59, '0', { fontFamily: FONT, fontSize: '20px', color: '#fff', stroke: '#1C1410', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(5);
+    this.timeText = this.add.text(0, 26, '', { fontFamily: FONT, fontSize: '17px', color: '#fff', stroke: '#1C1410', strokeThickness: 5 }).setOrigin(0.5).setDepth(5);
+    const L = this.level.world;
+    this.worldText = txt(this, 0, 22, `MUNDO ${L.id} · ${WORLD_NAMES[L.id].toUpperCase()}`, 18, { color: '#FFD43B' }).setDepth(5);
+    this.soundBtn = iconButton(this, 0, 30, this.soundIcon(), () => {
+      Sfx.cyclePack(); this.soundBtn.icon.setTexture(this.soundIcon()); this.toast(`Som: ${PACK_LABEL[SAVE.soundPack]}`, 1200);
+    }, 46).setDepth(5);
+    this.menuBtn = iconButton(this, 0, 30, 'btn_menu', () => this.level.scene.start('Title'), 46).setDepth(5);
+    this.toastText = txt(this, 0, 0, '', 18, { backgroundColor: '#2A0F6BDD', padding: { x: 14, y: 9 }, strokeThickness: 4, wordWrap: { width: 340 } }).setDepth(20).setAlpha(0);
     this.bossBox = this.add.container(0, 0).setDepth(6).setVisible(false);
-    this.bossTitle = txt(this, 0, 0, 'SUPER ORDENHADEIRA 3000', 14, { color: '#FFE0B2' });
+    this.bossTitle = txt(this, 0, 0, 'SUPER ORDENHADEIRA 3000', 15, { color: '#FFE0B2' });
     this.bossBar = this.add.graphics();
     this.bossBox.add([this.bossBar, this.bossTitle]);
 
@@ -50,7 +57,7 @@ export class HudScene extends Phaser.Scene {
     this.events.once('shutdown', () => this.scale.off('resize', this.onResize));
   }
 
-  soundLabel() { return `♪ ${PACK_LABEL[SAVE.soundPack]}`; }
+  soundIcon() { return SAVE.soundPack === 'silencio' ? 'btn_som_off' : 'btn_som'; }
 
   // ¼ esquerda, ¼ direita, resto saltar; com arranque: faixa do meio-direita é o arranque.
   zones() {
@@ -65,13 +72,14 @@ export class HudScene extends Phaser.Scene {
 
   layout() {
     const { width: w, height: h } = this.scale;
-    this.soundBtn.setPosition(w - 70, 28);
-    this.menuBtn.setPosition(w - 70 - 64 - 46, 28);
-    this.timeText.setPosition(w / 2, 26);
-    if (w < 480) this.timeText.setPosition(150, 56);
-    this.bossBox.setPosition(w / 2, w < 480 ? 96 : 60);
+    this.soundBtn.setPosition(w - 82, 30);
+    this.menuBtn.setPosition(w - 30, 30);
+    this.worldText.setPosition(w / 2, 22).setVisible(w >= 560);
+    this.timeText.setPosition(w / 2, w >= 560 ? 48 : 26);
+    if (w < 560) this.timeText.setPosition(w - 150, 30);
+    this.bossBox.setPosition(w / 2, w < 560 ? 92 : 70);
     this.drawBoss();
-    this.toastText.setPosition(w / 2, Math.min(h * 0.22, 160)).setWordWrapWidth(Math.min(w - 40, 520));
+    this.toastText.setPosition(w / 2, Math.min(h * 0.24, 170)).setWordWrapWidth(Math.min(w - 40, 520));
     this.drawPads(false, false, false, false);
     if (this.modalBox) this.buildModal();
   }
@@ -89,39 +97,43 @@ export class HudScene extends Phaser.Scene {
     const pw = 46;
     for (let i = 0; i < max; i++) {
       const x = -((max * (pw + 6)) / 2) + i * (pw + 6);
-      g.fillStyle(0x1c1410, 0.8).fillRoundedRect(x, 12, pw, 12, 4);
-      if (i < hp) g.fillStyle(0xe8302a).fillRoundedRect(x + 2, 14, pw - 4, 8, 3);
+      g.fillStyle(0x1c1410, 0.85).fillRoundedRect(x, 12, pw, 14, 6);
+      if (i < hp) { g.fillStyle(0xe8302a).fillRoundedRect(x + 2, 14, pw - 4, 10, 5); g.fillStyle(0xffffff, 0.45).fillRoundedRect(x + 5, 15, pw - 10, 3, 2); }
+      g.lineStyle(2, 0xffd43b).strokeRoundedRect(x, 12, pw, 14, 6);
     }
   }
 
   drawPads(l, r, j, d) {
     const { width: w, height: h } = this.scale;
-    const g = this.pads; const ic = this.padIcons;
-    g.clear(); ic.clear();
-    this.jumpLabel.setVisible(this.showTouch);
-    this.dashLabel.setVisible(this.showTouch && SAVE.dash);
-    if (!this.showTouch) return;
+    const g = this.pads;
+    g.clear();
+    const show = this.showTouch;
+    Object.values(this.padImgs).forEach((im) => im.setVisible(show));
+    this.jumpLabel.setVisible(show);
+    this.dashLabel.setVisible(show && SAVE.dash);
+    this.padImgs.dash.setVisible(show && SAVE.dash);
+    if (!show) return;
     const top = this.topH;
     const z = this.zones();
-    g.fillStyle(0xffffff, l ? 0.12 : 0.03); g.fillRect(0, top, z.l, h - top);
-    g.fillStyle(0xffffff, r ? 0.12 : 0.03); g.fillRect(z.l, top, z.r - z.l, h - top);
-    if (SAVE.dash) { g.fillStyle(0xffd27a, d ? 0.22 : 0.08); g.fillRect(z.r, top, z.d - z.r, h - top); }
-    g.fillStyle(0xffffff, j ? 0.12 : 0.02); g.fillRect(z.d, top, w - z.d, h - top);
-    g.lineStyle(1, 0xffffff, 0.12);
+    g.fillStyle(0xffffff, l ? 0.1 : 0.02); g.fillRect(0, top, z.l, h - top);
+    g.fillStyle(0xffffff, r ? 0.1 : 0.02); g.fillRect(z.l, top, z.r - z.l, h - top);
+    if (SAVE.dash) { g.fillStyle(0xffd43b, d ? 0.2 : 0.07); g.fillRect(z.r, top, z.d - z.r, h - top); }
+    g.fillStyle(0xffffff, j ? 0.1 : 0.015); g.fillRect(z.d, top, w - z.d, h - top);
+    g.lineStyle(1, 0xffffff, 0.1);
     for (const x of [z.l, z.r, z.d]) g.lineBetween(x, top + 20, x, h - 20);
-    const cy = h - Math.min(110, h * 0.14);
-    const s = Math.min(34, w * 0.07);
-    const cl = z.l / 2, cr = (z.l + z.r) / 2, cj = (z.d + w) / 2;
-    ic.fillStyle(0xffffff, l ? 0.6 : 0.3); ic.fillTriangle(cl + s * 0.6, cy - s, cl + s * 0.6, cy + s, cl - s * 0.8, cy);
-    ic.fillStyle(0xffffff, r ? 0.6 : 0.3); ic.fillTriangle(cr - s * 0.6, cy - s, cr - s * 0.6, cy + s, cr + s * 0.8, cy);
-    ic.fillStyle(0xffffff, j ? 0.6 : 0.3); ic.fillTriangle(cj - s, cy + s * 0.3, cj + s, cy + s * 0.3, cj, cy - s * 1.1);
-    this.jumpLabel.setPosition(cj, cy + s * 0.3 + 20).setAlpha(j ? 0.7 : 0.35);
+    const size = Math.min(84, w * 0.17, h * 0.2);
+    const cy = h - size * 0.5 - Math.min(40, h * 0.05);
+    const place = (im, x, on) => im.setPosition(x, cy).setDisplaySize(on ? size * 1.08 : size, on ? size * 1.08 : size).setAlpha(on ? 0.95 : 0.6);
+    place(this.padImgs.left, z.l / 2, l);
+    place(this.padImgs.right, (z.l + z.r) / 2, r);
+    const cj = (z.d + w) / 2;
+    place(this.padImgs.jump, cj, j);
+    this.jumpLabel.setPosition(cj, cy - size * 0.5 - 12).setAlpha(j ? 0.9 : 0.6);
     if (SAVE.dash) {
-      const cd = (z.r + z.d) / 2, ss = s * 0.6;
-      ic.fillStyle(0xffd27a, d ? 0.7 : 0.35);
-      ic.fillTriangle(cd - ss * 1.2, cy - ss, cd - ss * 1.2, cy + ss, cd, cy);
-      ic.fillTriangle(cd - ss * 0.1, cy - ss, cd - ss * 0.1, cy + ss, cd + ss * 1.1, cy);
-      this.dashLabel.setPosition(cd, cy + s * 0.3 + 20).setAlpha(d ? 0.7 : 0.35);
+      const cd = (z.r + z.d) / 2;
+      place(this.padImgs.dash, cd, d);
+      this.padImgs.dash.setDisplaySize(Math.min(size, (z.d - z.r) * 0.9), Math.min(size, (z.d - z.r) * 0.9));
+      this.dashLabel.setPosition(cd, cy - size * 0.5 - 12).setAlpha(d ? 0.9 : 0.6);
     }
   }
 
@@ -129,7 +141,7 @@ export class HudScene extends Phaser.Scene {
     const L = this.level;
     if (!L || !L.player) return;
     this.heartImgs.forEach((im, i) => im.setTexture(i < L.hearts ? 'coracao' : 'coracao_vazio'));
-    this.cloverText.setText(`${L.clovers}/${L.totalClovers}`);
+    this.cloverText.setText(`× ${L.clovers}/${L.totalClovers}`);
     const s = Math.floor(L.elapsed / 1000);
     this.timeText.setText(`${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
 
@@ -146,10 +158,19 @@ export class HudScene extends Phaser.Scene {
     t.left = left; t.right = right; t.jumpHeld = jump; t.dash = dash;
   }
 
+  // o trevo do HUD dá um pulo quando apanhas um
+  bumpClover() {
+    // uma volta só e pára de frente (assim o ícone nunca fica "de lado")
+    this.cloverIcon.play({ key: 'trevo_spin', repeat: 0 }, true);
+    this.cloverIcon.once('animationcomplete', () => this.cloverIcon.setFrame(0));
+    this.tweens.add({ targets: [this.cloverIcon, this.cloverText], scale: '*=1.25', duration: 90, yoyo: true, onComplete: () => { this.cloverIcon.setScale(0.62); this.cloverText.setScale(1); } });
+  }
+
   toast(msg, ms = 2600) {
     if (!this.toastText) return;
     this.tweens.killTweensOf(this.toastText);
-    this.toastText.setText(msg).setAlpha(1);
+    this.toastText.setText(msg).setAlpha(1).setScale(0.8);
+    this.tweens.add({ targets: this.toastText, scale: 1, duration: 180, ease: 'Back.out' });
     this.tweens.add({ targets: this.toastText, alpha: 0, delay: ms, duration: 400 });
   }
 
@@ -166,16 +187,22 @@ export class HudScene extends Phaser.Scene {
     const { width: w, height: h } = this.scale;
     const m = this.modalSpec;
     const c = this.modalBox = this.add.container(0, 0).setDepth(50);
-    const dim = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.55).setInteractive();
+    const dim = this.add.rectangle(w / 2, h / 2, w, h, 0x0a0628, 0.6).setInteractive();
     const pw = Math.min(w - 32, 460), ph = 270;
     const panel = this.add.graphics();
-    panel.fillStyle(0xfff8ec).fillRoundedRect(w / 2 - pw / 2, h / 2 - ph / 2, pw, ph, 18).lineStyle(4, 0xc4452d).strokeRoundedRect(w / 2 - pw / 2, h / 2 - ph / 2, pw, ph, 18);
-    const t = txt(this, w / 2, h / 2 - ph / 2 + 34, m.title, 24, { stroke: '#C4452D', strokeThickness: 6 });
-    const b = this.add.text(w / 2, h / 2 - 34, m.body, { fontFamily: 'system-ui, sans-serif', fontSize: '17px', color: '#1C1410', align: 'center', wordWrap: { width: pw - 32 } }).setOrigin(0.5);
+    panel.fillStyle(0xffd43b).fillRoundedRect(w / 2 - pw / 2 - 6, h / 2 - ph / 2 - 6, pw + 12, ph + 12, 22).lineStyle(4, 0x1c1410).strokeRoundedRect(w / 2 - pw / 2 - 6, h / 2 - ph / 2 - 6, pw + 12, ph + 12, 22);
+    panel.fillGradientStyle(0xa86af5, 0xa86af5, 0x4a1a9e, 0x4a1a9e, 1).fillRoundedRect(w / 2 - pw / 2, h / 2 - ph / 2, pw, ph, 18);
+    const t = txt(this, w / 2, h / 2 - ph / 2 + 34, m.title, 26, { color: '#FFD43B' });
+    const b = this.add.text(w / 2, h / 2 - 34, m.body, { fontFamily: BODY_FONT, fontSize: '17px', color: '#FFFFFF', align: 'center', fontStyle: 'bold', wordWrap: { width: pw - 32 } }).setOrigin(0.5);
     const close = (fn) => () => { this.modalBox.destroy(); this.modalBox = null; this.modalOpen = false; fn(); };
     const bw = Math.min(200, (pw - 48) / 2);
-    const yes = button(this, w / 2 - bw / 2 - 8, h / 2 + ph / 2 - 50, m.yesLabel, close(m.onYes), { w: bw, h: 52, size: 15, fill: 0x3a8f3e });
-    const no = button(this, w / 2 + bw / 2 + 8, h / 2 + ph / 2 - 50, m.noLabel, close(m.onNo), { w: bw, h: 52, size: 15, fill: 0xc4452d });
-    c.add([dim, panel, t, b, yes, no]);
+    this.modalBtns = {
+      yes: button(this, w / 2 - bw / 2 - 8, h / 2 + ph / 2 - 50, m.yesLabel, close(m.onYes), { w: bw, h: 52, size: 15, fill: 0x3a8f3e }),
+      no: button(this, w / 2 + bw / 2 + 8, h / 2 + ph / 2 - 50, m.noLabel, close(m.onNo), { w: bw, h: 52, size: 15, fill: 0xc4452d }),
+    };
+    c.add([dim, panel, t, b, this.modalBtns.yes, this.modalBtns.no]);
+    c.setScale(0.9).setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 150 });
+    c.setScale(1);
   }
 }

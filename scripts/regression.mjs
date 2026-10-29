@@ -35,6 +35,13 @@ async function session(name, opts, body) {
     dash: async () => { await page.keyboard.down('Shift'); await sleep(60); await page.keyboard.up('Shift'); },
   };
   const ctx2 = { page, w, h, log, check, L, scenes, tap, input, touch };
+  // botões lidos das próprias cenas (posição real no ecrã), p.ex. tapObj('Title', 'btns.play')
+  ctx2.at = (scene, p) => page.evaluate(([s, path]) => {
+    const o = path.split('.').reduce((a, k) => a[k], window.__MOOTINY__.scene.getScene(s));
+    const m = o.getWorldTransformMatrix(); return { x: m.tx, y: m.ty };
+  }, [scene, p]);
+  ctx2.tapObj = async (scene, p) => { const q = await ctx2.at(scene, p); await tap(q.x, q.y); };
+  ctx2.gotoTitle = async () => { await page.goto(BASE + '/'); await page.waitForFunction(() => window.__MOOTINY__?.scene?.isActive('Title'), null, { timeout: 30000 }); await sleep(800); };
   ctx2.waitScene = async (key, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if ((await scenes()).includes(key)) return true; await sleep(150); } return false; };
   ctx2.throughIntro = async () => {
     for (let i = 0; i < 20 && (await scenes()).includes('Intro'); i++) { if (touch) await tap(w / 2, h * 0.6); else await page.keyboard.press('Enter'); await sleep(450); }
@@ -61,7 +68,7 @@ async function session(name, opts, body) {
         fin:L.finished, modal:L.hud.modalOpen, en:L.walkers.getChildren().filter(e=>!e.dead).map(e=>e.x),
         tr:L.tractors.getChildren().map(t=>t.x), th:L.thistles.getChildren().map(t=>t.x), gr:L.world.grounds, pits:L.hayPlaced ? [] : L.world.pits})`);
       if (!s || s.fin) { await sleep(200); continue; }
-      if (s.modal) { await input.right(false); await tap(w / 2 - Math.min(200, (Math.min(w - 32, 460) - 48) / 2) / 2 - 8, h / 2 + 85); await sleep(300); await input.right(true); continue; }
+      if (s.modal) { await input.right(false); await ctx2.tapObj('Hud', 'modalBtns.yes'); await sleep(300); await input.right(true); continue; }
       const ahead = (arr, d) => arr.some((x) => x > s.x + 8 && x < s.x + d);
       const wall = s.gr.some(([a, , top]) => a > s.x && a - s.x < 90 && top < s.y - 10);
       const pit = s.pits.some(([a]) => a > s.x && a - s.x < 50);
@@ -85,31 +92,32 @@ async function session(name, opts, body) {
 // ---------- 1) Jogador real: Mundo 1 completo → Próximo → Mundo 2; repetir; entrar pelo menu ----------
 async function fullFlow(c, kind) {
   const { page, w, h, check, tap, scenes, L } = c;
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' }); await sleep(1500);
-  const by = h * 0.29, bw = Math.min(320, w * 0.8), half = (bw - 10) / 2;
-  await tap(w / 2 + half / 2 + 5, by + 166); await sleep(300); // "Modo fácil" no menu
-  await tap(w / 2, by); // Jogar
+  await c.gotoTitle();
+  await c.tapObj('Title', 'btns.easy'); await sleep(300); // "Modo fácil" no menu
+  await c.tapObj('Title', 'btns.play'); // Jogar
   check(await c.waitScene('Intro'), 'Jogar abre a intro');
   check(await c.throughIntro(), 'intro do Mundo 1 termina com toques/teclas');
   await c.walkJump('Mundo 1');
-  await c.playToEnd(180000);
+  await c.playToEnd(300000); // o Chrome sem GPU corre a ~25–30 fps a 1280x800: o tempo de jogo anda mais devagar
   check(await c.waitScene('Complete', 9000), 'Mundo 1 jogado até ao fim (sem teletransporte)');
   await page.screenshot({ path: `${OUT}/regressao-${kind}-1-mundo1-fim.png` });
-  await tap(w / 2, h * 0.24 + 190); // Próximo: A Quinta
+  await c.tapObj('Complete', 'btns.next'); // Próximo: A Quinta
   check(await c.waitScene('Intro'), 'Próximo abre a intro da Quinta');
   check(await c.throughIntro(), 'intro da Quinta termina');
   check((await L('L.world.id')) === 2, 'Mundo 2 a correr');
   await c.walkJump('Mundo 2 depois de Próximo');
   await page.screenshot({ path: `${OUT}/regressao-${kind}-2-mundo2.png` });
   // Menu → Mundo 1 (repetir)
-  await tap(w - 70 - 64 - 46, 28); check(await c.waitScene('Title'), 'Menu do HUD volta ao título');
+  await c.tapObj('Hud', 'menuBtn'); check(await c.waitScene('Title'), 'Menu do HUD volta ao título');
   await sleep(500);
-  await tap(w / 2 - half / 2 - 5, by + 88); check(await c.waitScene('Intro'), 'seleção: Mundo 1');
-  await tap(w - 80, 36); check(await c.waitScene('Level'), 'Saltar ▸ entra no nível');
+  // a intro do Mundo 1 só aparece na 1.ª vez: agora a seleção entra direto no nível
+  await c.tapObj('Title', 'btns.world1'); check(await c.waitScene('Level'), 'seleção: Mundo 1 (intro já vista → direto ao nível)');
+  check(!(await scenes()).includes('Intro'), 'intro do Mundo 1 não se repete');
   await c.walkJump('Mundo 1 repetido');
-  await tap(w - 70 - 64 - 46, 28); await c.waitScene('Title'); await sleep(500);
-  await tap(w / 2 + half / 2 + 5, by + 88); check(await c.waitScene('Intro'), 'seleção: Mundo 2');
-  await tap(w - 80, 36); await c.waitScene('Level');
+  await c.tapObj('Hud', 'menuBtn'); await c.waitScene('Title'); await sleep(500);
+  await c.tapObj('Title', 'btns.world2'); check(await c.waitScene('Intro'), 'seleção: Mundo 2');
+  await sleep(400);
+  await c.tapObj('Intro', 'btns.skip'); check(await c.waitScene('Level'), 'Saltar ▸ entra no nível');
   check((await L('L.world.id')) === 2, 'Mundo 2 pela seleção');
   await c.walkJump('Mundo 2 pela seleção');
 }
@@ -117,7 +125,7 @@ async function fullFlow(c, kind) {
 // ---------- 2) Fardo a partir de parado + vala, sem modo fácil (paisagem, como o Pedro) ----------
 async function dashWall(c, kind, hold = false) {
   const { page, w, h, check, L, input, log } = c;
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' }); await sleep(1200);
+  await c.gotoTitle();
   // entrada direta no Mundo 2 e posição antes da ferradura (os comandos são todos reais)
   await page.evaluate(() => window.__MOOTINY__.scene.getScene('Title').scene.start('Level', { world: 2 }));
   await sleep(1200);
@@ -157,9 +165,10 @@ async function dashWall(c, kind, hold = false) {
 const mobile = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const landscape = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const desktop = { viewport: { width: 1280, height: 800 } };
-if (!process.env.ONLY_DASH) await session('toque-390x844', mobile, (c) => fullFlow(c, 'toque'));
+if (!process.env.ONLY_DASH && !process.env.ONLY_KEY) await session('toque-390x844', mobile, (c) => fullFlow(c, 'toque'));
 if (process.env.ONLY_TOUCH) { await browser.close(); process.exit(failures ? 1 : 0); }
 if (!process.env.ONLY_DASH) await session('teclado-1280x800', desktop, (c) => fullFlow(c, 'teclado'));
+if (process.env.ONLY_KEY) { await browser.close(); process.exit(failures ? 1 : 0); }
 await session('toque-paisagem-844x390', landscape, (c) => dashWall(c, 'paisagem'));
 await session('teclado-fardo', desktop, (c) => dashWall(c, 'teclado'));
 await session('toque-paisagem-segura', landscape, (c) => dashWall(c, 'paisagem-segura', true));

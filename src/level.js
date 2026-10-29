@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SAVE, persist } from './save.js';
-import { Sfx } from './sfx.js';
-import { txt } from './common.js';
+import { Sfx, Music } from './sfx.js';
+import { txt, popText, sparkles } from './common.js';
 import { WORLDS, GT } from './worlds.js';
 import { Boss } from './boss.js';
 
@@ -49,15 +49,22 @@ export class LevelScene extends Phaser.Scene {
 
     this.physics.world.setBounds(0, -800, this.W, 2400);
     this.physics.world.setBoundsCollision(true, true, false, false);
-    this.cameras.main.setBackgroundColor(L.theme === 'quinta' ? '#ffd9a0' : '#7cc4ff');
+    this.cameras.main.setBackgroundColor(L.theme === 'quinta' ? '#ffb070' : '#3fb4ff');
 
-    if (L.theme === 'quinta') this.drawFarmBackground(); else this.drawIslandBackground();
+    this.drawParallax(L.theme === 'quinta' ? 'quinta' : 'ilha');
+    if (L.theme === 'quinta') this.drawFarmBackground();
     this.buildLevel();
 
-    const p = this.player = this.physics.add.sprite(this.checkpoint.x, this.checkpoint.y, 'mimosa_idle');
-    p.body.setSize(24, 54).setOffset(12, 10);
-    p.setCollideWorldBounds(true).setDepth(10);
+    // Mimosa: arte 2x (96x128) a meia escala; a caixa de colisão é em píxeis da textura (o dobro dos valores lógicos)
+    const p = this.player = this.physics.add.sprite(this.checkpoint.x, this.checkpoint.y, 'mimosa', 0).setScale(0.5);
+    p.body.setSize(48, 108).setOffset(24, 20);
+    p.setCollideWorldBounds(true).setDepth(10).setVisible(false);
     p.body.setMaxVelocityY(900);
+    // o que se vê é uma cópia com "squash & stretch" (assim a física nunca muda de tamanho)
+    this.look = this.add.sprite(p.x, p.y, 'mimosa', 0).setOrigin(0.5, 1).setScale(0.5).setDepth(10);
+    this.squash = { x: 1, y: 1 };
+    this.wasGround = true;
+    this.events.on('postupdate', () => { if (!this.finished) this.syncLook(); });
 
     this.physics.add.collider(p, this.solids);
     // os callbacks normalizam a ordem (a Mimosa é sempre this.player)
@@ -92,6 +99,28 @@ export class LevelScene extends Phaser.Scene {
     this.events.once('shutdown', () => this.scene.stop('Hud'));
     if (SAVE.easy) this.applyEasy(false);
     cam.fadeIn(300, 28, 20, 16);
+    Music.play('theme');
+  }
+
+  // fundo em 4 camadas com paralaxe (céu fixo; longe 0.15; meio 0.35; perto 0.6), alinhado com o chão
+  drawParallax(theme) {
+    const k = 0.9; // 1280x800 → 1152x720 no mundo
+    this.sky = this.add.image(0, 0, `bg_${theme}_sky`).setScrollFactor(0).setDepth(-10);
+    this.layers = [['far', 0.15, -9], ['mid', 0.35, -8], ['near', 0.6, -7]].map(([l, f, d]) => {
+      const t = this.add.tileSprite(-200, GT + 56, (this.W * f + 2000) / k, this.textures.get(`bg_${theme}_${l}`).getSourceImage().height, `bg_${theme}_${l}`).setOrigin(0, 1).setScale(k).setScrollFactor(f, 1).setDepth(d);
+      return t;
+    });
+    // por baixo das camadas (buracos e ecrãs muito altos): roxo-escuro como nas maquetas
+    const under = this.add.graphics().setDepth(-6.5);
+    under.fillGradientStyle(0x2a0f6b, 0x2a0f6b, 0x0a0628, 0x0a0628, 1);
+    under.fillRect(-500, GT + 40, this.W + 1000, BOTTOM - GT + 400);
+  }
+
+  fitSky() {
+    const cam = this.cameras.main;
+    const z = cam.zoom;
+    const s = Math.max(cam.width / z / 1280, cam.height / z / 800) * 1.02;
+    this.sky.setPosition(cam.width / 2, cam.height / 2).setScale(s);
   }
 
   fitCamera() {
@@ -100,79 +129,22 @@ export class LevelScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setZoom(z);
     cam.setFollowOffset(0, h / z > 700 ? 0 : 90);
+    if (this.sky) this.fitSky();
   }
 
   // ---------- cenário ----------
-  drawIslandBackground() {
-    const sky = this.add.graphics().setScrollFactor(0, 1).setDepth(-10);
-    sky.fillGradientStyle(0x4aa3f0, 0x4aa3f0, 0xcdeeff, 0xcdeeff, 1);
-    sky.fillRect(-3000, -800, 9000, GT - 80 + 800);
-    sky.fillStyle(0xcdeeff); sky.fillRect(-3000, GT - 80, 9000, 400);
-    const sea = this.add.graphics().setScrollFactor(0.1, 1).setDepth(-9);
-    sea.fillStyle(0x2f8fd6); sea.fillRect(-3000, GT - 90, 9000, 300);
-    sea.fillStyle(0x7fc3f0); for (let x = -3000; x < 6000; x += 90) sea.fillRect(x, GT - 80, 40, 3);
-    this.clouds();
-    const far = this.add.graphics().setScrollFactor(0.3, 1).setDepth(-7);
-    far.fillStyle(0x8fd17e);
-    for (let x = -400; x < 4200; x += 420) far.fillEllipse(x, GT - 30, 620, 260);
-    const near = this.add.graphics().setScrollFactor(0.55, 1).setDepth(-6);
-    near.fillStyle(0x66bb55);
-    for (let x = -300; x < 5200; x += 520) near.fillEllipse(x + 200, GT + 20, 560, 220);
-    near.fillStyle(0xffffff); near.fillRect(900, GT - 170, 30, 110); near.fillStyle(0xe8302a); near.fillRect(900, GT - 140, 30, 18); near.fillRect(896, GT - 182, 38, 14);
-    near.fillStyle(0xfff3a0); near.fillRect(905, GT - 196, 20, 14);
-  }
-
   drawFarmBackground() {
-    const sky = this.add.graphics().setScrollFactor(0, 1).setDepth(-10);
-    sky.fillGradientStyle(0x6fa8e8, 0x6fa8e8, 0xffe0a8, 0xffe0a8, 1);
-    sky.fillRect(-3000, -800, 9000, GT - 60 + 800);
-    sky.fillStyle(0xffe0a8); sky.fillRect(-3000, GT - 60, 9000, 400);
-    this.clouds();
-    // campos lavrados
-    const far = this.add.graphics().setScrollFactor(0.25, 1).setDepth(-7);
-    far.fillStyle(0xc9b458); far.fillRect(-2000, GT - 90, 8000, 300);
-    far.fillStyle(0xa8963f); for (let y = GT - 80; y < GT + 50; y += 16) far.fillRect(-2000, y, 8000, 4);
-    far.fillStyle(0x9ccf7a); for (let x = -400; x < 3200; x += 500) far.fillEllipse(x, GT - 90, 560, 120);
-    // celeiros e silos ao longe
-    const mid = this.add.graphics().setScrollFactor(0.5, 1).setDepth(-6);
-    for (let x = 200; x < 4000; x += 900) {
-      this.barn(mid, x, GT - 40, 0.9);
-      mid.fillStyle(0xb0b8c0); mid.fillRect(x + 190, GT - 210, 50, 170); mid.fillStyle(0x8a929a); mid.fillEllipse(x + 215, GT - 210, 50, 30);
-    }
-    // vedação de madeira decorativa
-    const fence = this.add.graphics().setDepth(0);
-    fence.fillStyle(0xd8b07a); fence.lineStyle(1.5, 0x1c1410, 0.6);
-    for (const [x1, x2, top] of this.world.grounds) {
-      if (top !== GT) continue;
-      for (let x = x1 + 10; x < x2 - 10; x += 48) { fence.fillRect(x, GT - 44, 7, 44); }
-      fence.fillRect(x1 + 6, GT - 38, x2 - x1 - 12, 6); fence.fillRect(x1 + 6, GT - 20, x2 - x1 - 12, 6);
-    }
     // interior do estábulo (arena)
     const { ar0, ar1 } = this.world.goal;
     const st = this.add.graphics().setDepth(-1);
-    st.fillStyle(0x7a2a20); st.fillRect(ar0, GT - 1100, ar1 - ar0 + 400, 1100);
-    st.fillStyle(0x6a2219); for (let x = ar0; x < ar1 + 400; x += 40) st.fillRect(x, GT - 1100, 3, 1100);
-    st.fillStyle(0x4a3020); st.fillRect(ar0, GT - 420, ar1 - ar0 + 400, 22); st.fillRect(ar0, GT - 300, ar1 - ar0 + 400, 14);
-    st.fillStyle(0xe7c35a); st.fillEllipse(ar0 + 70, GT, 160, 70); st.fillEllipse(ar1 - 60, GT, 150, 60);
-    txt(this, (ar0 + ar1) / 2, GT - 326, 'ESTÁBULO · LEITARIA AUTOMÁTICA', 14, { color: '#FFE0B2' }).setDepth(-1);
-  }
-
-  barn(g, x, groundY, s) {
-    if (!s) return;
-    const w = 180 * s, h = 120 * s;
-    g.fillStyle(0xb8322a); g.fillRect(x, groundY - h, w, h);
-    g.fillTriangle(x - 10 * s, groundY - h, x + w + 10 * s, groundY - h, x + w / 2, groundY - h - 70 * s);
-    g.fillStyle(0xffffff); g.fillRect(x + w / 2 - 30 * s, groundY - 70 * s, 60 * s, 70 * s);
-    g.fillStyle(0xb8322a); g.fillRect(x + w / 2 - 25 * s, groundY - 65 * s, 50 * s, 65 * s);
-    g.lineStyle(4 * s, 0xffffff); g.lineBetween(x + w / 2 - 25 * s, groundY - 65 * s, x + w / 2 + 25 * s, groundY); g.lineBetween(x + w / 2 + 25 * s, groundY - 65 * s, x + w / 2 - 25 * s, groundY);
-    g.fillStyle(0xffffff); g.fillRect(x + w / 2 - 14 * s, groundY - h - 40 * s, 28 * s, 22 * s);
-  }
-
-  clouds() {
-    for (let i = 0; i < 16; i++) {
-      this.add.image(i * 330 + Phaser.Math.Between(0, 120), Phaser.Math.Between(-300, 260), 'nuvem')
-        .setScrollFactor(0.15, 1).setScale(Phaser.Math.FloatBetween(0.6, 1.3)).setDepth(-8).setAlpha(0.9);
-    }
+    const x0 = ar0 - 20, ww = ar1 - ar0 + 420;
+    st.fillGradientStyle(0x4a1a9e, 0x4a1a9e, 0x8e2a1e, 0x8e2a1e, 1); st.fillRect(x0, GT - 1100, ww, 1100);
+    st.fillStyle(0x1c1410, 0.25); for (let x = x0; x < x0 + ww; x += 48) st.fillRect(x, GT - 1100, 4, 1100);
+    st.fillStyle(0x6e3a1a); st.fillRect(x0, GT - 420, ww, 22); st.fillRect(x0, GT - 300, ww, 14);
+    st.lineStyle(3, 0x1c1410); st.strokeRect(x0, GT - 420, ww, 22); st.strokeRect(x0, GT - 300, ww, 14);
+    for (let x = ar0 + 120; x < ar1; x += 220) { st.fillStyle(0xffd43b, 0.18); st.fillCircle(x, GT - 380, 46); st.fillStyle(0xfff6b0); st.fillCircle(x, GT - 392, 9); st.lineStyle(2, 0x1c1410).strokeCircle(x, GT - 392, 9); }
+    st.fillStyle(0xe0a83a); st.fillEllipse(ar0 + 70, GT, 160, 70); st.fillEllipse(ar1 - 60, GT, 150, 60);
+    txt(this, (ar0 + ar1) / 2, GT - 330, 'ESTÁBULO · LEITARIA AUTOMÁTICA', 18, { color: '#FFD43B' }).setDepth(-1);
   }
 
   // ---------- construção ----------
@@ -180,23 +152,24 @@ export class LevelScene extends Phaser.Scene {
     const L = this.world;
     this.solids = [];
     this.plats = [];
-    if (L.theme === 'quinta') {
-      // valas de lama: deixam claro que são buracos
-      const ditch = this.add.graphics().setDepth(0);
-      for (const [x1, x2] of L.pits) {
-        ditch.fillGradientStyle(0x5a3d26, 0x5a3d26, 0x1c1410, 0x1c1410, 1);
-        ditch.fillRect(x1, GT + 16, x2 - x1, BOTTOM - GT);
-        ditch.fillStyle(0x6b4a2e); ditch.fillEllipse((x1 + x2) / 2, GT + 150, (x2 - x1) * 0.8, 24);
-      }
+    // buracos: fosso escuro (claramente um buraco)
+    const ditch = this.add.graphics().setDepth(0);
+    for (const [x1, x2] of L.pits) {
+      ditch.fillGradientStyle(0x2a0f6b, 0x2a0f6b, 0x0a0628, 0x0a0628, 1);
+      ditch.fillRect(x1, GT + 10, x2 - x1, BOTTOM - GT + 200);
     }
+    // relva e terra em tileSprite com a arte 2x (tileScale 0.5)
     for (const [x1, x2, top] of L.grounds) {
       const w = x2 - x1;
-      this.add.tileSprite(x1, top + 20, w, BOTTOM - top, 'terra').setOrigin(0, 0).setDepth(1);
-      this.add.tileSprite(x1, top - 4, w, 26, 'relva').setOrigin(0, 0).setDepth(2);
+      this.add.tileSprite(x1, top + 18, w, BOTTOM - top + 200, 'terra').setOrigin(0, 0).setTileScale(0.5).setDepth(1);
+      this.add.tileSprite(x1, top - 8, w, 26, 'relva').setOrigin(0, 0).setTileScale(0.5).setDepth(2);
+      const edge = this.add.graphics().setDepth(2);
+      edge.lineStyle(3, 0x1c1410); edge.lineBetween(x1, top - 4, x1, BOTTOM + 200); edge.lineBetween(x2, top - 4, x2, BOTTOM + 200);
       this.addSolid(x1, top, w, BOTTOM - top + 200);
     }
     for (const [x, y, w] of L.plats) {
-      this.add.tileSprite(x, y - 3, w, 20, 'plataforma').setOrigin(0, 0).setDepth(2);
+      // 9-slice: as pontas arredondadas ficam inteiras seja qual for a largura
+      this.add.nineslice(x, y - 3, 'plataforma', null, w * 2, 40, 24, 24, 0, 0).setOrigin(0, 0).setScale(0.5).setDepth(2);
       const z = this.add.zone(x + w / 2, y + 8, w, 16);
       this.physics.add.existing(z, true);
       this.plats.push(z);
@@ -215,21 +188,23 @@ export class LevelScene extends Phaser.Scene {
     // tratores: não se podem pisar
     this.tractors = this.physics.add.group();
     for (const [x, min, max] of L.tractors) {
-      const t = this.tractors.create(x, GT - 40, 'trator').setDepth(5);
-      t.body.setSize(96, 60).setOffset(8, 10);
+      // MEGA trator: 384x256 (2x) = 192x128 lógicos; caixa 320x196 (texture px) = 160x98, da grelha à roda de trás
+      const t = this.tractors.create(x, GT - 66, 'trator', 0).setScale(0.5).setDepth(5);
+      t.body.setSize(320, 196).setOffset(24, 56);
+      t.play('trator_drive');
       t.minX = min; t.maxX = max; t.dir = -1; t.baseSpeed = 110;
-      this.tweens.add({ targets: t, angle: { from: -1.5, to: 1.5 }, yoyo: true, repeat: -1, duration: 120 });
+      this.tweens.add({ targets: t, angle: { from: -0.8, to: 0.8 }, yoyo: true, repeat: -1, duration: 140 });
     }
     this.thistles = this.physics.add.staticGroup();
     for (const [x, y] of L.thistles) {
-      const t = this.thistles.create(x, y - 14, 'cardo').setDepth(4);
-      t.body.setSize(20, 20).setOffset(6, 6);
+      const t = this.thistles.create(x, y - 14, 'cardo').setScale(0.5).setDepth(4).refreshBody();
+      t.body.setSize(20, 20);
     }
     // cercas elétricas (liga/desliga com aviso)
     this.efences = [];
     this.efenceZones = [];
     for (const [x, offset] of L.efences) {
-      const g = this.add.graphics().setDepth(6);
+      const g = this.add.tileSprite(x, GT, 64, 540, 'cerca', 0).setOrigin(0.5, 1).setScale(0.5).setDepth(6);
       const z = this.add.zone(x, GT - 130, 14, 260);
       this.physics.add.existing(z, true);
       const f = { x, offset, g, on: false, warn: false, zone: z, drawn: null };
@@ -240,7 +215,7 @@ export class LevelScene extends Phaser.Scene {
     // fardos que só o arranque parte
     this.hayWalls = [];
     for (const x of L.hayWalls) {
-      const img = this.add.tileSprite(x - 32, GT - 280, 64, 280, 'feno').setOrigin(0, 0).setDepth(5);
+      const img = this.add.tileSprite(x - 32, GT - 280, 64, 280, 'feno').setOrigin(0, 0).setTileScale(0.5).setDepth(5);
       const z = this.add.zone(x, GT - 140, 64, 280);
       this.physics.add.existing(z, true);
       z.img = img;
@@ -249,17 +224,19 @@ export class LevelScene extends Phaser.Scene {
 
     this.cloverGroup = this.physics.add.staticGroup();
     for (const [x, y] of L.clovers) {
-      const c = this.cloverGroup.create(x, y, 'trevo').setDepth(4);
-      this.tweens.add({ targets: c, scaleX: 0.75, yoyo: true, repeat: -1, duration: 500 + (x % 200) });
+      const c = this.cloverGroup.create(x, y, 'trevo', 0).setScale(0.5).setDepth(4).refreshBody();
+      c.play({ key: 'trevo_spin', startFrame: Math.floor(x / 37) % 6 });
+      this.tweens.add({ targets: c, y: y - 4, yoyo: true, repeat: -1, duration: 700 + (x % 300), ease: 'Sine.inOut' });
     }
     const pw = L.power;
-    this.power = this.physics.add.staticImage(pw.x, pw.y, pw.type === 'dash' ? 'ferradura' : 'poder').setDepth(4);
+    this.power = this.physics.add.staticImage(pw.x, pw.y, pw.type === 'dash' ? 'ferradura' : 'poder').setScale(0.5).setDepth(4).refreshBody();
     this.tweens.add({ targets: this.power, angle: { from: -8, to: 8 }, yoyo: true, repeat: -1, duration: 600 });
+    this.time.addEvent({ delay: 700, loop: true, callback: () => { if (!this.power.got && this.power.active) sparkles(this, this.power.x, this.power.y, { n: 3, spread: 22, scale: 0.35, depth: 3 }); } });
     if (SAVE[pw.type]) this.power.setAlpha(0.45);
     this.flags = this.physics.add.staticGroup();
     for (const [x, y] of L.checkpoints) {
-      const f = this.flags.create(x, y - 35, 'bandeira').setDepth(3);
-      f.cloth = this.add.image(x, y - 35, 'pano_off').setDepth(3);
+      const f = this.flags.create(x + 14, y - 35, 'bandeira', 0).setScale(0.5).setDepth(3).refreshBody();
+      f.cloth = f;
     }
     if (L.goal.type === 'gate') this.buildGate(L.goal.x);
     else this.boss = new Boss(this, L.goal.ar0, L.goal.ar1);
@@ -274,9 +251,10 @@ export class LevelScene extends Phaser.Scene {
 
   addWalker(kind, x, min, max) {
     const isCan = kind === 'can';
-    const e = this.walkers.create(x, GT - 34, isCan ? 'can1' : 'agricultor1');
-    if (isCan) { e.body.setSize(26, 40).setOffset(5, 4); e.play('can_walk'); e.baseSpeed = 70; }
-    else { e.body.setSize(30, 54).setOffset(9, 10); e.play('farmer_walk'); e.baseSpeed = 65; }
+    const e = this.walkers.create(x, GT - 34, isCan ? 'can' : 'agricultor', 0).setScale(0.5);
+    // caixas em píxeis da textura 2x (= o dobro dos valores lógicos antigos)
+    if (isCan) { e.body.setSize(52, 80).setOffset(10, 8); e.play('can_walk'); e.baseSpeed = 70; }
+    else { e.body.setSize(60, 108).setOffset(18, 20); e.play('farmer_walk'); e.baseSpeed = 65; }
     e.kind = kind; e.minX = min; e.maxX = max; e.dir = -1;
     e.setDepth(5);
     return e;
@@ -284,16 +262,13 @@ export class LevelScene extends Phaser.Scene {
 
   buildGate(gx) {
     this.gateX = gx;
-    const pen = this.add.graphics().setDepth(3);
-    pen.fillStyle(0xc89a5c); pen.lineStyle(2, 0x1c1410);
-    for (let x = gx + 20; x <= gx + 220; x += 40) { pen.fillRect(x, GT - 64, 10, 64); pen.strokeRect(x, GT - 64, 10, 64); }
-    pen.fillRect(gx + 10, GT - 56, 220, 8); pen.strokeRect(gx + 10, GT - 56, 220, 8);
-    pen.fillRect(gx + 10, GT - 28, 220, 8); pen.strokeRect(gx + 10, GT - 28, 220, 8);
-    this.mana = this.add.image(gx + 130, GT, 'mana_sleepy').setOrigin(0.5, 1).setFlipX(true).setDepth(2);
-    this.gate = this.add.image(gx, GT, 'portao').setOrigin(0, 1).setDepth(4);
+    this.add.image(gx + 6, GT + 2, 'cercado').setOrigin(0, 1).setScale(0.5).setDepth(3);
+    this.mana = this.add.image(gx + 130, GT + 2, 'mana', 0).setOrigin(0.5, 1).setScale(0.5).setFlipX(true).setDepth(2);
+    this.tweens.add({ targets: this.mana, scaleY: 0.48, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.inOut' });
+    this.gate = this.add.image(gx, GT + 2, 'portao').setOrigin(0, 1).setScale(0.5).setDepth(4);
     this.gateZone = this.add.zone(gx - 4, GT - 300, 30, 600);
     this.physics.add.existing(this.gateZone, true);
-    txt(this, gx + 120, GT - 110, 'MANA ESTRELA', 14, { color: '#FFF3A0' }).setDepth(4);
+    txt(this, gx + 120, GT - 110, 'MANA ESTRELA', 16, { color: '#FFD43B' }).setDepth(4);
   }
 
   addSolid(x, y, w, h) {
@@ -304,8 +279,8 @@ export class LevelScene extends Phaser.Scene {
   }
 
   sign(x, text) {
-    this.add.image(x, GT - 26, 'placa').setDepth(2).setScale(1.1);
-    txt(this, x, GT - 120, text, 13, { color: '#FFFFFF', backgroundColor: '#1C1410AA', padding: { x: 8, y: 6 }, strokeThickness: 0 }).setDepth(3);
+    this.add.image(x, GT + 2, 'placa').setOrigin(0.5, 1).setScale(0.5).setDepth(2);
+    txt(this, x, GT - 110, text, 14, { color: '#FFFFFF', backgroundColor: '#2A0F6BCC', padding: { x: 10, y: 7 }, strokeThickness: 4 }).setDepth(3);
   }
 
   applyEasy(announce = true) {
@@ -313,7 +288,7 @@ export class LevelScene extends Phaser.Scene {
       this.hayPlaced = true;
       for (const [x1, x2] of this.world.pits) {
         const w = x2 - x1;
-        this.add.tileSprite(x1, GT + 8, w, 40, 'feno').setOrigin(0, 0).setDepth(2);
+        this.add.tileSprite(x1, GT + 8, w, 40, 'feno').setOrigin(0, 0).setTileScale(0.5).setDepth(2);
         const z = this.addSolid(x1, GT + 8, w, 400);
         this.physics.add.collider(this.player, z);
         this.physics.add.collider(this.walkers, z);
@@ -382,9 +357,14 @@ export class LevelScene extends Phaser.Scene {
     }
     if (!c.held && !this.dashing && time - (this.jumpAt || 0) > 150 && p.body.velocity.y < -260 && this.jumpsUsed > 0) p.setVelocityY(-260);
 
-    if (this.dashing || !onGround) { p.anims.stop(); p.setTexture('mimosa_jump'); }
+    if (time < this.hurtLock) { p.anims.stop(); p.setFrame(8); }
+    else if (this.dashing) { p.anims.stop(); p.setFrame(2); }
+    else if (!onGround) { p.anims.stop(); p.setFrame(p.body.velocity.y < 60 ? 6 : 7); }
     else if (Math.abs(p.body.velocity.x) > 30) { if (p.anims.currentAnim?.key !== 'walk' || !p.anims.isPlaying) p.play('walk'); }
-    else { p.anims.stop(); p.setTexture('mimosa_idle'); }
+    else if (p.anims.currentAnim?.key !== 'idle' || !p.anims.isPlaying) p.play('idle');
+    // squash & stretch: ao aterrar 1.1×0.9 durante 80 ms; no ar estica um pouco
+    if (onGround && !this.wasGround) this.doSquash(1.1, 0.9, 80);
+    this.wasGround = onGround;
 
     for (const e of this.walkers.getChildren()) {
       if (e.dead) continue;
@@ -408,26 +388,41 @@ export class LevelScene extends Phaser.Scene {
     if (p.y > GT + 320) this.fall();
   }
 
+  doSquash(sx, sy, ms) {
+    this.tweens.killTweensOf(this.squash);
+    this.squash.x = sx; this.squash.y = sy;
+    this.tweens.add({ targets: this.squash, x: 1, y: 1, duration: ms, delay: ms * 0.5, ease: 'Sine.out' });
+  }
+
+  // a imagem visível segue o corpo físico (pés no fundo da caixa)
+  syncLook() {
+    const p = this.player, v = this.look;
+    if (!p || !v) return;
+    const air = !(p.body.blocked.down || p.body.touching.down) && !this.dashing;
+    const st = air ? Phaser.Math.Clamp(1 + Math.abs(p.body.velocity.y) / 9000, 1, 1.07) : 1;
+    v.setPosition(p.x, p.body.bottom + 1).setFrame(p.frame.name).setFlipX(p.flipX).setAlpha(p.alpha);
+    v.setScale(0.5 * this.squash.x / (air ? Math.sqrt(st) : 1), 0.5 * this.squash.y * st);
+    v.setAngle(this.dashing ? (this.dashDir > 0 ? 4 : -4) : 0);
+  }
+
   updateFences(time) {
     for (const f of this.efences) {
       const ph = (time + f.offset) % 3000;
       const on = ph < 1400;
       const warn = !on && ph > 2550;
       const flick = on ? Math.floor(time / 70) % 2 : 0;
-      const key = `${on}${warn}${flick}${warn ? Math.floor(time / 120) % 2 : 0}`;
+      const blink = warn ? Math.floor(time / 120) % 2 : 0;
+      const key = `${on}${warn}${flick}${blink}`;
       f.on = on;
       if (key === f.drawn) continue;
       f.drawn = key;
-      const g = f.g; g.clear();
-      g.fillStyle(0x6e4527); g.fillRect(f.x - 6, GT - 270, 12, 270);
-      g.fillStyle(0x444444); g.fillRect(f.x - 8, GT - 276, 16, 10);
-      const col = on ? 0xfff35a : warn && Math.floor(time / 120) % 2 ? 0xff8a00 : 0x777777;
-      g.lineStyle(on ? 3 : 2, col, 1);
-      for (let y = GT - 250; y < GT; y += 30) {
-        if (on) g.lineBetween(f.x - 16, y + (flick ? 3 : -3), f.x + 16, y + (flick ? -3 : 3));
-        else g.lineBetween(f.x - 16, y, f.x + 16, y);
-      }
-      if (on) { g.fillStyle(0xffffff, 0.6); g.fillCircle(f.x, GT - 278, 8); }
+      const g = f.g;
+      g.setFrame(on ? 1 : 0);
+      g.tilePositionY = on && flick ? 10 : 0;
+      g.setAlpha(on && flick ? 0.85 : 1);
+      if (warn && blink) g.setTint(0xff8a00); else g.clearTint();
+      if (on && !f.wasOn) sparkles(this, f.x, GT - 200, { n: 5, spread: 30, tint: 0x9ff4ff, scale: 0.4 });
+      f.wasOn = on;
     }
   }
 
@@ -467,7 +462,7 @@ export class LevelScene extends Phaser.Scene {
 
   afterimage() {
     const p = this.player;
-    const g = this.add.image(p.x, p.y, p.texture.key).setFlipX(p.flipX).setDepth(9).setAlpha(0.45).setTint(0xffd27a);
+    const g = this.add.image(p.x, p.body.bottom + 1, 'mimosa', p.frame.name).setOrigin(0.5, 1).setScale(0.5).setFlipX(p.flipX).setDepth(9).setAlpha(0.45).setTint(0xffd27a);
     this.tweens.add({ targets: g, alpha: 0, duration: 220, onComplete: () => g.destroy() });
   }
 
@@ -478,17 +473,17 @@ export class LevelScene extends Phaser.Scene {
     Sfx.play('stomp');
     this.cameras.main.shake(160, 0.008);
     for (let i = 0; i < 14; i++) {
-      const s = this.add.image(wall.x + Phaser.Math.Between(-30, 30), GT - Phaser.Math.Between(0, 280), 'feno').setScale(0.35).setDepth(9);
+      const s = this.add.image(wall.x + Phaser.Math.Between(-30, 30), GT - Phaser.Math.Between(0, 280), 'feno').setScale(0.18).setDepth(9);
       this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(40, 160) * this.dashDir, y: s.y + Phaser.Math.Between(-60, 120), angle: Phaser.Math.Between(-180, 180), alpha: 0, duration: 700, onComplete: () => s.destroy() });
     }
     wall.img.destroy();
-    const pop = txt(this, wall.x, GT - 300, 'CRAAC!', 20, { color: '#FFF3A0' }).setDepth(12);
-    this.tweens.add({ targets: pop, y: pop.y - 30, alpha: 0, duration: 700, onComplete: () => pop.destroy() });
+    popText(this, wall.x, GT - 300, 'CRAAC!', { size: 26 });
+    sparkles(this, wall.x, GT - 140, { n: 10, spread: 70, tint: 0xfff0a0, scale: 0.6 });
   }
 
   puff(x, y) {
     for (let i = 0; i < 6; i++) {
-      const s = this.add.image(x, y, 'faisca').setDepth(9).setScale(0.8);
+      const s = this.add.image(x, y, 'faisca').setDepth(9).setScale(0.4).setBlendMode(Phaser.BlendModes.ADD);
       this.tweens.add({ targets: s, x: x + Phaser.Math.Between(-30, 30), y: y + Phaser.Math.Between(0, 16), alpha: 0, scale: 0.2, duration: 350, onComplete: () => s.destroy() });
     }
   }
@@ -498,7 +493,11 @@ export class LevelScene extends Phaser.Scene {
     c.body.enable = false;
     this.clovers++;
     Sfx.play('coin');
-    this.tweens.add({ targets: c, y: c.y - 40, alpha: 0, duration: 300, onComplete: () => c.destroy() });
+    popText(this, c.x, c.y - 14, '+1', { size: 18, rise: 30, ms: 650 });
+    sparkles(this, c.x, c.y, { n: 7, spread: 26, tint: 0xb6ff8a, scale: 0.45 });
+    if (this.hud && this.hud.bumpClover) this.hud.bumpClover();
+    this.tweens.killTweensOf(c);
+    this.tweens.add({ targets: c, y: c.y - 30, scale: 0.8, alpha: 0, duration: 260, onComplete: () => c.destroy() });
   }
 
   getPower() {
@@ -511,7 +510,8 @@ export class LevelScene extends Phaser.Scene {
     persist();
     Sfx.play('power');
     this.cameras.main.flash(200, 255, 243, 160);
-    this.tweens.add({ targets: this.power, y: this.power.y - 60, alpha: 0, scale: 2, duration: 500 });
+    this.tweens.add({ targets: this.power, y: this.power.y - 60, alpha: 0, scale: 1.2, duration: 500 });
+    sparkles(this, this.power.x, this.power.y, { n: 14, spread: 70, tint: 0xffd43b, scale: 0.7, ms: 600 });
     if (type === 'dash') {
       this.hud.toast(`Ferradura-turbo! ARRANQUE desbloqueado.\n${this.isTouch ? 'Toca na faixa ▶▶ (ou 2 toques em ▶)' : 'Shift ou K'}: dispara em frente e parte fardos. (ficou gravado)`, 4200);
       this.hud.layout();
@@ -523,8 +523,9 @@ export class LevelScene extends Phaser.Scene {
   reachCheckpoint(f) {
     if (f.reached) return;
     f.reached = true;
-    f.cloth.setTexture('pano_on');
+    f.setFrame(1);
     Sfx.play('check');
+    sparkles(this, f.x, f.y - 20, { n: 8, spread: 40, tint: 0xffd43b, scale: 0.5 });
     this.setCheckpoint(f.x, GT - 40);
     this.hud.toast('Ponto de controlo!');
   }
@@ -541,13 +542,14 @@ export class LevelScene extends Phaser.Scene {
     if (fromTop || this.dashing) {
       e.dead = true;
       e.anims.stop();
-      e.setTexture(e.kind === 'can' ? 'can_flat' : 'agricultor_flat');
+      e.setFrame(2);
       e.body.enable = false;
       Sfx.play('stomp');
       if (fromTop) { p.setVelocityY(e.kind === 'farmer' ? -620 : -430); this.jumpsUsed = 1; }
-      const word = e.kind === 'can' ? 'CLANC!' : Phaser.Utils.Array.GetRandom(['Ai a minha barriga!', 'BOING!', 'Raios!']);
-      const pop = txt(this, e.x, e.y - 34, word, 16, { color: '#FFF3A0' }).setDepth(12);
-      this.tweens.add({ targets: pop, y: pop.y - 30, alpha: 0, duration: 700, onComplete: () => pop.destroy() });
+      const word = e.kind === 'can' ? Phaser.Utils.Array.GetRandom(['BOING!', 'CLANC!']) : Phaser.Utils.Array.GetRandom(['BOING!', 'Ai a minha barriga!', 'Raios!']);
+      popText(this, e.x, e.y - 34, word, { size: word.length > 8 ? 16 : 22, color: '#FFFFFF' });
+      sparkles(this, e.x, e.y - 10, { n: 8, spread: 34, scale: 0.5 });
+      if (fromTop) this.doSquash(0.9, 1.12, 90);
       this.tweens.add({ targets: e, alpha: 0, delay: 600, duration: 400, onComplete: () => e.destroy() });
     } else {
       this.hurt(e.x);
@@ -637,16 +639,19 @@ export class LevelScene extends Phaser.Scene {
     const p = this.player;
     p.setVelocity(0, 0);
     p.body.enable = false;
-    p.anims.stop(); p.setTexture('mimosa_jump');
+    p.anims.stop(); p.setFrame(6);
+    this.syncLook();
     Sfx.play('win');
     if (this.world.goal.type === 'gate') {
       const gx = this.gateX;
       this.tweens.add({ targets: this.gate, scaleX: 0.15, duration: 400 });
       this.time.delayedCall(450, () => {
-        this.mana.setTexture('mana_happy').setDepth(6);
+        this.tweens.killTweensOf(this.mana);
+        this.mana.setFrame(1).setScale(0.5).setDepth(6);
+        sparkles(this, gx + 60, GT - 60, { n: 14, spread: 80, tint: 0xffd43b, scale: 0.7, ms: 700 });
         this.tweens.add({ targets: this.mana, x: gx + 34, duration: 500, ease: 'Sine.out' });
-        this.tweens.add({ targets: [this.mana, p], y: '-=24', yoyo: true, repeat: 3, duration: 200, delay: 500 });
-        const muu = txt(this, gx - 60, GT - 150, 'MUUU!', 30, { color: '#FFF3A0', stroke: '#C4452D' }).setDepth(12);
+        this.tweens.add({ targets: [this.mana, this.look], y: '-=24', yoyo: true, repeat: 3, duration: 200, delay: 500 });
+        const muu = txt(this, gx - 60, GT - 150, 'MUUU!', 34, { color: '#FFD43B' }).setDepth(12);
         this.tweens.add({ targets: muu, scale: 1.3, yoyo: true, repeat: 2, duration: 250 });
       });
     }

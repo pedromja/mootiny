@@ -9,7 +9,7 @@ Plataformas cómico 2D (PWA, PT-PT): a Mimosa, uma Holstein de bandana vermelha,
 - Telemóvel: botões em marca de água em ecrã inteiro. Teclado: A/D andar, Espaço saltar, Shift/K arranque.
 - Progresso gravado no aparelho (localStorage), sem contas. [Política de privacidade](https://pedromja.github.io/mootiny/privacidade/)
 
-Arte e som gerados por código (Phaser 3 + Vite). Sem assets de terceiros.
+Arte (sprites 2x, fundos com paralaxe, intro animada de 6 painéis), efeitos sonoros (packs Clássico e Mootiny) e música são originais, gerados por código no projeto irmão `mootiny-art`; `node scripts/build-assets.mjs` (ART=../mootiny-art) copia/converte para `public/assets/` (sem .wav nem refs/). Fonte: Luckiest Guy (Apache 2.0, ver `public/assets/fonts/`). Phaser 3 + Vite.
 
 ```bash
 npm install

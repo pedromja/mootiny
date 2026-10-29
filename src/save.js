@@ -1,7 +1,7 @@
 // Gravação local (localStorage), sem contas.
 const KEY = 'mootiny.save.v1';
 const W = () => ({ done: false, bestClovers: 0, bestTime: null });
-const DEFAULTS = { doubleJump: false, dash: false, easy: false, soundPack: 'classico', world1: W(), world2: W() };
+const DEFAULTS = { doubleJump: false, dash: false, easy: false, introSeen: false, soundPack: 'classico', world1: W(), world2: W() };
 
 function load() {
   try {

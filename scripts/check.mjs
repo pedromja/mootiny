@@ -26,17 +26,29 @@ async function run(name, opts) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   };
   const log = (...a) => console.log(`[${name}]`, ...a);
+  // posição real (no ecrã) de um botão de uma cena, p.ex. at('Title', 'btns.play')
+  const at = (scene, p) => page.evaluate(([s, path]) => {
+    const o = path.split('.').reduce((a, k) => a[k], window.__MOOTINY__.scene.getScene(s));
+    const m = o.getWorldTransformMatrix(); return { x: m.tx, y: m.ty };
+  }, [scene, p]);
+  const tapObj = async (scene, p) => { const q = await at(scene, p); await tap(q.x, q.y); };
+  const waitScene = async (key, ms = 15000) => { const t = Date.now(); while (Date.now() - t < ms) { if ((await scenes()).includes(key)) return true; await sleep(150); } return false; };
 
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-  await sleep(1500);
+  const tLoad = Date.now();
+  await page.goto(BASE + '/');
+  await page.waitForFunction(() => window.__MOOTINY__?.scene?.isActive('Title'), null, { timeout: 30000 });
+  log(`title ready in ${Date.now() - tLoad} ms`);
+  await sleep(1200);
   log('scenes', await scenes());
   await page.screenshot({ path: `${OUT}/${name}-1-titulo.png` });
 
-  await tap(w / 2, h * 0.29); // botão Jogar
-  await sleep(3900);
+  await tapObj('Title', 'btns.play'); // botão Jogar (1.ª vez → intro animada)
+  await sleep(10600); // 4.º painel (o raio)
   log('scenes after play', await scenes());
-  await page.screenshot({ path: `${OUT}/${name}-2-intro-plop.png` });
+  if (!(await scenes()).includes('Intro')) { failures++; log('FAIL: intro not shown on first play'); }
+  await page.screenshot({ path: `${OUT}/${name}-2-intro-painel.png` });
   await page.keyboard.press('Escape');
+  await waitScene('Level');
   await sleep(1200);
   log('scenes after intro', await scenes());
 
@@ -61,9 +73,8 @@ async function run(name, opts) {
   log('difficulty offer shown:', modal);
   if (!modal) { failures++; log('FAIL: no difficulty offer'); }
   await page.screenshot({ path: `${OUT}/${name}-4-oferta-dificuldade.png` });
-  const pw = Math.min(w - 32, 460), bw = Math.min(200, (pw - 48) / 2);
-  if (mobile) await tap(w / 2 - bw / 2 - 8, h / 2 + 135 - 50); // Sim
-  else await tap(w / 2 + bw / 2 + 8, h / 2 + 135 - 50); // Não
+  if (mobile) await tapObj('Hud', 'modalBtns.yes'); // Sim
+  else await tapObj('Hud', 'modalBtns.no'); // Não
   await sleep(500);
   log('after choice: modalOpen', await page.evaluate(() => window.__MOOTINY__.scene.getScene('Hud').modalOpen), 'easy', await page.evaluate(() => JSON.parse(localStorage.getItem('mootiny.save.v1') || '{}').easy));
 
@@ -93,11 +104,12 @@ async function run(name, opts) {
   const check = (ok, msg) => { if (!ok) { failures++; log('FAIL: ' + msg); } else log('ok: ' + msg); };
 
   // ===== Mundo 2 · A Quinta =====
-  await tap(w / 2, h * 0.24 + 190); // "Próximo: A Quinta"
+  await tapObj('Complete', 'btns.next'); // "Próximo: A Quinta"
   await sleep(1600);
   check((await scenes()).includes('Intro'), 'next button opens World 2 intro');
   await page.screenshot({ path: `${OUT}/${name}-w2-1-intro.png` });
   await page.keyboard.press('Escape');
+  await waitScene('Level');
   await sleep(1200);
   check((await level('L.world.id')) === 2, 'World 2 level running');
   const a0 = await level('L.player.x');
@@ -109,7 +121,7 @@ async function run(name, opts) {
   check((await level('L.player.x')) > a0 + 120, 'Mimosa moves in World 2');
 
   // trator e cerca elétrica
-  await level('L.debugWarp(1460)'); await sleep(1600);
+  await level('L.debugWarp(1380)'); await sleep(1600);
   await page.screenshot({ path: `${OUT}/${name}-w2-3-trator.png` });
   const fenceStates = new Set();
   for (let i = 0; i < 8; i++) { fenceStates.add(await level('L.efences[0].on')); await sleep(400); }
@@ -119,8 +131,7 @@ async function run(name, opts) {
   if (!(await save()).easy) {
     for (let i = 0; i < 2; i++) { await level('L.debugWarp(1210)'); await sleep(1500); }
     check(await page.evaluate(() => window.__MOOTINY__.scene.getScene('Hud').modalOpen), 'easy-mode offer after 2 falls in World 2');
-    const pw = Math.min(w - 32, 460), bw = Math.min(200, (pw - 48) / 2);
-    await tap(w / 2 + bw / 2 + 8, h / 2 + 135 - 50); // Não
+    await tapObj('Hud', 'modalBtns.no'); // Não
     await sleep(400);
   } else {
     check(await level('L.hayPlaced === true'), 'easy mode carried into World 2 (hay in pits)');
@@ -164,7 +175,7 @@ async function run(name, opts) {
   check((await scenes()).includes('Complete'), 'World 2 complete screen');
   await page.screenshot({ path: `${OUT}/${name}-w2-8-nivel-concluido.png` });
   check((await save()).world2?.done === true, 'World 2 completion saved');
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' }); await sleep(1200);
+  await page.goto(BASE + '/'); await waitScene('Title'); await sleep(1200);
   await page.screenshot({ path: `${OUT}/${name}-9-titulo-progresso.png` });
 
   const sw = await page.evaluate(async () => { const r = await Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((res) => setTimeout(() => res(false), 4000))]); return r; });
