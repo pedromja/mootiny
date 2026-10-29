@@ -122,9 +122,10 @@ async function dashWall(c, kind, hold = false) {
   await page.evaluate(() => window.__MOOTINY__.scene.getScene('Title').scene.start('Level', { world: 2 }));
   await sleep(1200);
   await L('L.debugWarp(2470)'); await sleep(400);
-  await input.right(true); await sleep(500); await input.right(false); await sleep(300);
+  await input.right(true);
   let gotDash = false;
-  for (let i = 0; i < 20 && !gotDash; i++) { gotDash = await page.evaluate(() => (JSON.parse(localStorage.getItem('mootiny.save.v1') || '{}').dash === true)); if (!gotDash) await sleep(150); }
+  for (let i = 0; i < 30 && !gotDash; i++) { await sleep(100); gotDash = await page.evaluate(() => (JSON.parse(localStorage.getItem('mootiny.save.v1') || '{}').dash === true)); }
+  await input.right(false); await sleep(300);
   check(gotDash, 'ferradura apanhada: arranque gravado');
   await sleep(1500);
   // anda até encostar ao fardo e fica parada
